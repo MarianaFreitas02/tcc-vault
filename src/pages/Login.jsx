@@ -1,4 +1,3 @@
-// src/pages/Login.jsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { derivarChaveMestra, gerarHashDeAutenticacao } from '../crypto';
@@ -10,13 +9,15 @@ function Login() {
   const [status, setStatus] = useState("");
   const navigate = useNavigate();
 
+  // URL DO SEU BACKEND NO RENDER
+  const API_URL = "https://tcc-backend-4ept.onrender.com"; 
+
   async function handleLogin() {
     if (!username || !senha) return setStatus("Digite usuário e senha.");
     setStatus("⏳ Buscando credenciais...");
 
     try {
-      // 1. Pedir o SALT (URL Dinâmica)
-      const respSalt = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/salt/${username}`);
+      const respSalt = await fetch(`${API_URL}/api/auth/salt/${username}`);
       
       if (!respSalt.ok) {
         return setStatus("❌ Usuário não encontrado.");
@@ -26,20 +27,15 @@ function Login() {
 
       setStatus("🔐 Processando criptografia...");
 
-      // 2. ZK Flow
       const { key } = await derivarChaveMestra(senha, salt);
-
-      // 3. Gerar Hash
       const authHash = await gerarHashDeAutenticacao(key);
 
-      // 4. Tentar Logar (URL Dinâmica)
-      const resposta = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login`, {
+      const resposta = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, authHash })
       });
 
-      // CORREÇÃO: A variável acima chama 'resposta', não 'respLogin'
       if (resposta.ok) {
         navigate('/dashboard', { state: { chaveMestra: key, usuario: username } });
       } else {
@@ -62,20 +58,12 @@ function Login() {
 
       <div className="form-group">
         <label>Usuário</label>
-        <input 
-          type="text" 
-          value={username} 
-          onChange={e => setUsername(e.target.value)} 
-        />
+        <input type="text" value={username} onChange={e => setUsername(e.target.value)} />
       </div>
 
       <div className="form-group">
         <label>Senha Mestra</label>
-        <input 
-          type="password" 
-          value={senha} 
-          onChange={e => setSenha(e.target.value)} 
-        />
+        <input type="password" value={senha} onChange={e => setSenha(e.target.value)} />
       </div>
 
       <button className="btn-encrypt" style={{width: '100%'}} onClick={handleLogin}>
