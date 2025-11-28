@@ -1,3 +1,4 @@
+// src/pages/Cadastro.jsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { jsPDF } from "jspdf";
@@ -102,11 +103,18 @@ function Cadastro() {
               Baixe o Kit de Emergência abaixo. Sem ele, você perde tudo se esquecer a senha.
             </p>
           </div>
-          <button className="btn-decrypt" style={{width: '100%', marginBottom: '10px', background: '#e11d48'}} onClick={baixarKitEmergencia}>
+          
+          <button className="btn-decrypt" style={{width: '100%', marginBottom: '10px', background: '#e11d48', color: 'white'}} onClick={baixarKitEmergencia}>
             📄 Baixar Kit de Emergência
           </button>
-          <button className="btn-encrypt" style={{width: '100%', background: 'transparent', border: '1px solid #3b82f6'}} onClick={irParaLogin}>
-            Ir para Login ➡️
+          
+          {/* AQUI ESTÁ A MUDANÇA: Adicionei color: 'white' */}
+          <button 
+            className="btn-encrypt" 
+            style={{width: '100%', background: 'transparent', border: '1px solid #3b82f6', color: 'white'}} 
+            onClick={irParaLogin}
+          >
+            Já salvei, ir para Login ➡️
           </button>
         </div>
       )}
