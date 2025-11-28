@@ -236,6 +236,18 @@ h1, h2, h3, .logo-area {
 }
 
 /* ================= MODAIS E FORMULÁRIOS ================= */
+/* Efeito de Segurança para Texto */
+.secret-blur {
+  filter: blur(5px); /* Texto embaçado por padrão */
+  transition: 0.3s;
+  cursor: pointer;
+  user-select: text; /* Permite selecionar com o mouse se quiser */
+}
+
+.secret-blur:hover {
+  filter: blur(0); /* Fica nítido quando passa o mouse */
+}
+
 .modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;

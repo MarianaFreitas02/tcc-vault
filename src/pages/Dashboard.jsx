@@ -9,22 +9,16 @@ function Dashboard() {
   const navigate = useNavigate();
   const { chaveMestra, usuario } = location.state || {};
 
-  // Estados de Dados
   const [listaItens, setListaItens] = useState([]);
-  
-  // NOVO: Estado para saber qual aba da esquerda está selecionada
-  const [filtro, setFiltro] = useState('todos'); // 'todos', 'texto', 'arquivo'
-
-  // Estados de UI (Modais)
+  const [filtro, setFiltro] = useState('todos');
   const [modalAberto, setModalAberto] = useState(false);
-  const [abaAtiva, setAbaAtiva] = useState('arquivo'); // No modal de criar: 'arquivo' ou 'senha'
+  const [abaAtiva, setAbaAtiva] = useState('arquivo');
   const [tituloItem, setTituloItem] = useState("");
   const [textoSenha, setTextoSenha] = useState("");
   const [arquivoSelecionado, setArquivoSelecionado] = useState(null);
   const [itemAberto, setItemAberto] = useState(null);
   const [status, setStatus] = useState("");
 
-  // SEU LINK DO RENDER
   const API_URL = "https://tcc-backend-4ept.onrender.com";
 
   useEffect(() => {
@@ -45,8 +39,6 @@ function Dashboard() {
     }
   }
 
-  // --- LÓGICA DE FILTRAGEM (NOVO) ---
-  // Isso decide o que aparece na tela com base no botão clicado na esquerda
   const itensFiltrados = listaItens.filter(item => {
     if (filtro === 'todos') return true;
     if (filtro === 'texto') return item.tipoArquivo === 'secret/text';
@@ -157,72 +149,40 @@ function Dashboard() {
   return (
     <div className="dashboard-layout">
       
-      {/* 1. BARRA LATERAL (SIDEBAR) ATUALIZADA */}
+      {/* SIDEBAR */}
       <div className="sidebar">
         <div className="logo-area">
           <span style={{color: '#3b82f6'}}>🛡️</span> SecureVault
         </div>
-        
-        {/* Agora os botões mudam o estado do 'filtro' */}
-        <button 
-          className={`nav-btn ${filtro === 'todos' ? 'active' : ''}`} 
-          onClick={() => setFiltro('todos')}
-        >
-          📂 Todos os Itens
-        </button>
-        
-        <button 
-          className={`nav-btn ${filtro === 'texto' ? 'active' : ''}`} 
-          onClick={() => setFiltro('texto')}
-        >
-          🔑 Senhas
-        </button>
-        
-        <button 
-          className={`nav-btn ${filtro === 'arquivo' ? 'active' : ''}`} 
-          onClick={() => setFiltro('arquivo')}
-        >
-          🖼️ Documentos
-        </button>
-        
+        <button className={`nav-btn ${filtro === 'todos' ? 'active' : ''}`} onClick={() => setFiltro('todos')}>📂 Todos os Itens</button>
+        <button className={`nav-btn ${filtro === 'texto' ? 'active' : ''}`} onClick={() => setFiltro('texto')}>🔑 Senhas</button>
+        <button className={`nav-btn ${filtro === 'arquivo' ? 'active' : ''}`} onClick={() => setFiltro('arquivo')}>🖼️ Documentos</button>
         <div style={{marginTop: 'auto'}}>
-          <div style={{padding: '10px', fontSize: '0.9rem', color: '#64748b'}}>
-            Usuário: <strong style={{color: 'white'}}>{usuario}</strong>
-          </div>
+          <div style={{padding: '10px', fontSize: '0.9rem', color: '#64748b'}}>Usuário: <strong style={{color: 'white'}}>{usuario}</strong></div>
           <button className="nav-btn logout-btn" onClick={sair}>Sair</button>
         </div>
       </div>
 
-      {/* 2. ÁREA PRINCIPAL */}
+      {/* CONTEÚDO */}
       <div className="main-content">
         <div className="header-content">
           <h2>Meu Cofre {filtro !== 'todos' ? `(${filtro === 'texto' ? 'Senhas' : 'Arquivos'})` : ''}</h2>
-          <button className="btn-primary" style={{width: 'auto'}} onClick={() => setModalAberto(true)}>
-            + Adicionar Novo
-          </button>
+          <button className="btn-primary" style={{width: 'auto'}} onClick={() => setModalAberto(true)}>+ Adicionar Novo</button>
         </div>
 
-        {/* GRID USANDO A LISTA FILTRADA */}
         <div className="items-grid">
-          {itensFiltrados.length === 0 && (
-            <p style={{color: '#64748b'}}>Nenhum item encontrado nesta categoria.</p>
-          )}
-
+          {itensFiltrados.length === 0 && <p style={{color: '#64748b'}}>Nenhum item encontrado.</p>}
           {itensFiltrados.map(item => (
             <div key={item._id} className="item-card" onClick={() => abrirItem(item._id)}>
-              <div className="card-icon">
-                {item.tipoArquivo === 'secret/text' ? '🔑' : '📄'}
-              </div>
+              <div className="card-icon">{item.tipoArquivo === 'secret/text' ? '🔑' : '📄'}</div>
               <div className="card-title">{item.nomeOriginal}</div>
-              <div className="card-meta">
-                {new Date(item.dataUpload).toLocaleDateString()}
-              </div>
+              <div className="card-meta">{new Date(item.dataUpload).toLocaleDateString()}</div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* 3. MODAIS (ADICIONAR E VISUALIZAR) - IGUAIS AO ANTERIOR */}
+      {/* MODAL ADICIONAR */}
       {modalAberto && (
         <div className="modal-overlay">
           <div className="modal">
@@ -252,6 +212,7 @@ function Dashboard() {
         </div>
       )}
 
+      {/* MODAL VISUALIZAR (MODIFICADO: SEM BOTÃO COPIAR E COM BLUR) */}
       {itemAberto && (
         <div className="modal-overlay" onClick={() => setItemAberto(null)}>
           <div className="preview-modal" onClick={e => e.stopPropagation()}>
@@ -260,9 +221,13 @@ function Dashboard() {
               <button className="btn-close" onClick={() => setItemAberto(null)}>✕</button>
             </div>
             {itemAberto.tipo === 'texto' ? (
-              <div style={{background: '#0f172a', padding: '20px', borderRadius: '8px', border: '1px dashed #334155'}}>
-                <p style={{fontFamily: 'monospace', fontSize: '1.2rem', wordBreak: 'break-all'}}>{itemAberto.conteudo}</p>
-                <button className="btn-primary" style={{marginTop: '10px'}} onClick={() => navigator.clipboard.writeText(itemAberto.conteudo).then(() => alert("Copiado!"))}>Copiar</button>
+              <div style={{background: '#0a0a0a', padding: '20px', borderRadius: '8px', border: '1px dashed #334155'}}>
+                <p style={{color: '#94a3b8', fontSize: '0.8rem', marginBottom: '5px'}}>Passe o mouse para revelar:</p>
+                {/* AQUI ESTÁ A CLASSE NOVA 'secret-blur' */}
+                <p className="secret-blur" style={{fontFamily: 'monospace', fontSize: '1.5rem', wordBreak: 'break-all', color: '#fff', margin: 0}}>
+                  {itemAberto.conteudo}
+                </p>
+                {/* Botão Copiar REMOVIDO daqui */}
               </div>
             ) : (
               <div style={{textAlign: 'center'}}>
