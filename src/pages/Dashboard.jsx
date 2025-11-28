@@ -170,6 +170,23 @@ function Dashboard() {
           <button className="btn-primary" style={{width: 'auto'}} onClick={() => setModalAberto(true)}>+ Adicionar Novo</button>
         </div>
 
+{/* Painel de Status Fake - Só visual */}
+<div style={{
+  background: 'rgba(6, 182, 212, 0.1)', 
+  border: '1px solid var(--neon-cyan)', 
+  padding: '15px', 
+  borderRadius: '12px', 
+  marginBottom: '30px',
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center'
+}}>
+  <div>
+    <h4 style={{margin: 0, color: 'var(--neon-cyan)'}}>Status do Cofre: SEGURO</h4>
+    <small style={{color: '#94a3b8'}}>Criptografia AES-256-GCM Ativa • Chaves na Memória RAM</small>
+  </div>
+  <div style={{fontSize: '2rem'}}>🛡️</div>
+</div>
         <div className="items-grid">
           {itensFiltrados.length === 0 && <p style={{color: '#64748b'}}>Nenhum item encontrado.</p>}
           {itensFiltrados.map(item => (
