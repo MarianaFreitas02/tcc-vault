@@ -8,32 +8,26 @@ function Dashboard() {
   const location = useLocation();
   const navigate = useNavigate();
   
-  // Recupera a chave e o usuário que vieram da memória da tela de Login
-  // Se o usuário tentar entrar direto pela URL, isso aqui será undefined/null
   const { chaveMestra, usuario } = location.state || {};
 
   const [listaArquivos, setListaArquivos] = useState([]);
   const [arquivoSelecionado, setArquivoSelecionado] = useState(null);
   const [status, setStatus] = useState("");
-  const [statusType, setStatusType] = useState(""); // 'success', 'error', 'loading'
+  const [statusType, setStatusType] = useState("");
   const [arquivoAbertoURL, setArquivoAbertoURL] = useState(null);
 
-  // --- 1. SEGURANÇA (MODIFICADO) ---
   useEffect(() => {
-    // Verifica se a chave existe na memória RAM
     if (!chaveMestra || !usuario) {
-      // replace: true -> Substitui a entrada atual no histórico.
-      // Impede que o botão "Voltar" funcione para acessar esta página.
       navigate('/login', { replace: true });
     } else {
       carregarLista();
     }
   }, [chaveMestra, usuario, navigate]);
 
-  // --- 2. BUSCAR LISTA ---
   async function carregarLista() {
     try {
-      const resp = await fetch(`http://localhost:3000/api/meus-arquivos/${usuario}`);
+      // CORREÇÃO: URL Dinâmica
+      const resp = await fetch(`${import.meta.env.VITE_API_URL}/api/meus-arquivos/${usuario}`);
       const dados = await resp.json();
       setListaArquivos(dados);
     } catch (error) {
@@ -41,7 +35,6 @@ function Dashboard() {
     }
   }
 
-  // --- 3. UPLOAD SEGURO ---
   async function handleUpload() {
     if (!arquivoSelecionado) return alert("Escolha um arquivo!");
     
@@ -49,14 +42,12 @@ function Dashboard() {
     setStatusType("loading");
 
     try {
-      // A. Ler arquivo para a RAM
       const reader = new FileReader();
       reader.readAsArrayBuffer(arquivoSelecionado);
       
       reader.onload = async () => {
         const bytes = reader.result;
         
-        // B. Criptografar (Client-Side Encryption)
         const iv = window.crypto.getRandomValues(new Uint8Array(12));
         const conteudoCifrado = await window.crypto.subtle.encrypt(
           { name: "AES-GCM", iv: iv }, 
@@ -64,26 +55,26 @@ function Dashboard() {
           bytes
         );
 
-        // C. Enviar para a Nuvem
         const payload = {
           dono: usuario,
           nomeOriginal: arquivoSelecionado.name,
-          tipoArquivo: arquivoSelecionado.type, // Ex: image/png, application/pdf
+          tipoArquivo: arquivoSelecionado.type,
           iv: bufferParaBase64(iv),
           conteudo: bufferParaBase64(conteudoCifrado)
         };
 
-        const resposta = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/salvar`, {
+        // CORREÇÃO: URL Dinâmica e nome da variável
+        const resposta = await fetch(`${import.meta.env.VITE_API_URL}/api/salvar`, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(payload)
         });
 
-        if (resp.ok) {
+        // CORREÇÃO: Usando 'resposta' em vez de 'resp'
+        if (resposta.ok) {
           setStatus("✅ Arquivo protegido e salvo com sucesso!");
           setStatusType("success");
           setArquivoSelecionado(null);
-          // Recarrega a lista para mostrar o novo arquivo
           carregarLista(); 
         } else {
           setStatus("Erro ao salvar no servidor.");
@@ -96,33 +87,29 @@ function Dashboard() {
     }
   }
 
-  // --- 4. DOWNLOAD E DESCRIPTOGRAFIA ---
   async function abrirArquivo(id) {
     setStatus("☁️ Baixando arquivo cifrado...");
     setStatusType("loading");
     setArquivoAbertoURL(null);
 
     try {
-      // A. Baixar o "lixo" do servidor
-      const resp = await fetch(`http://localhost:3000/api/arquivo/${id}`);
+      // CORREÇÃO: URL Dinâmica
+      const resp = await fetch(`${import.meta.env.VITE_API_URL}/api/arquivo/${id}`);
       if (!resp.ok) throw new Error("Arquivo não encontrado");
       
       const dados = await resp.json();
 
       setStatus("🔓 Descriptografando...");
 
-      // B. Converter Base64 para Bytes
       const iv = base64ParaBuffer(dados.iv);
       const conteudo = base64ParaBuffer(dados.conteudo);
 
-      // C. A Mágica: Destrancar usando a chave da memória
       const bytesDecifrados = await window.crypto.subtle.decrypt(
         { name: "AES-GCM", iv: iv }, 
         chaveMestra, 
         conteudo
       );
 
-      // D. Criar visualização
       const blob = new Blob([bytesDecifrados], { type: dados.tipoArquivo });
       const url = URL.createObjectURL(blob);
       
@@ -137,20 +124,15 @@ function Dashboard() {
     }
   }
 
-  // --- 5. LOGOUT SEGURO (MODIFICADO) ---
   function sair() {
-    // Limpa estados visuais
     setListaArquivos([]);
     setArquivoAbertoURL(null);
-    
-    // Força a navegação destruindo o histórico anterior
     navigate('/login', { replace: true });
   }
 
   return (
     <div className="container" style={{maxWidth: '800px'}}>
       
-      {/* HEADER DO DASHBOARD */}
       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', borderBottom: '1px solid #334155', paddingBottom: '15px'}}>
         <div>
           <h2 style={{margin: 0, color: '#f1f5f9'}}>Cofre de <span style={{color: '#3b82f6'}}>{usuario}</span></h2>
@@ -161,7 +143,6 @@ function Dashboard() {
         </button>
       </div>
 
-      {/* ÁREA DE UPLOAD */}
       <div style={{background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '30px', border: '1px solid #334155'}}>
         <h4 style={{marginTop: 0, color: '#cbd5e1'}}>Adicionar Novo Item ao Cofre</h4>
         
@@ -183,7 +164,6 @@ function Dashboard() {
         )}
       </div>
 
-      {/* LISTA DE ARQUIVOS */}
       <div className="form-group">
         <h4 style={{color: '#cbd5e1'}}>Meus Arquivos Protegidos</h4>
         
@@ -225,7 +205,6 @@ function Dashboard() {
         )}
       </div>
 
-      {/* ÁREA DE PREVIEW (ARQUIVO ABERTO) */}
       {arquivoAbertoURL && (
         <div className="preview-area" style={{marginTop: '30px', scrollMarginTop: '20px'}}>
           <p style={{color: '#10b981', fontWeight: 'bold'}}>Arquivo Descriptografado (Somente na RAM):</p>

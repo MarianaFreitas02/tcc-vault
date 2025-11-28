@@ -1,7 +1,7 @@
 // src/pages/Cadastro.jsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { jsPDF } from "jspdf"; // <--- Importando a lib de PDF
+import { jsPDF } from "jspdf";
 import { derivarChaveMestra, gerarHashDeAutenticacao } from '../crypto';
 import '../App.css';
 
@@ -9,10 +9,9 @@ function Cadastro() {
   const [username, setUsername] = useState("");
   const [senha, setSenha] = useState("");
   const [status, setStatus] = useState("");
-  const [contaCriada, setContaCriada] = useState(false); // Novo estado para controlar a tela
+  const [contaCriada, setContaCriada] = useState(false);
   const navigate = useNavigate();
 
-  // --- FUNÇÃO 1: CRIAR CONTA (BACKEND) ---
   async function handleCadastro() {
     if (!username || !senha) return setStatus("Preencha tudo!");
     if (senha.length < 6) return setStatus("Senha muito curta (min 6).");
@@ -25,6 +24,7 @@ function Cadastro() {
 
       const payload = { username, salt, authHash };
 
+      // URL Dinâmica aqui
       const resposta = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/cadastro`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -34,7 +34,7 @@ function Cadastro() {
       const dados = await resposta.json();
 
       if (resposta.ok) {
-        setContaCriada(true); // Muda a tela para mostrar o botão de download
+        setContaCriada(true);
         setStatus("✅ Conta criada! Agora baixe seu Kit de Emergência.");
       } else {
         setStatus("❌ " + dados.erro);
@@ -46,28 +46,24 @@ function Cadastro() {
     }
   }
 
-  // --- FUNÇÃO 2: GERAR E BAIXAR PDF (CLIENT-SIDE) ---
   function baixarKitEmergencia() {
     const doc = new jsPDF();
-
-    // Design simples do PDF
     doc.setFontSize(22);
-    doc.setTextColor(220, 53, 69); // Vermelho
+    doc.setTextColor(220, 53, 69);
     doc.text("KIT DE EMERGENCIA - SECURE VAULT", 20, 20);
 
     doc.setFontSize(12);
-    doc.setTextColor(0, 0, 0); // Preto
+    doc.setTextColor(0, 0, 0);
     doc.text("Guarde este documento em um local seguro (HD Externo ou Impresso).", 20, 30);
     doc.text("Se voce esquecer sua senha, este eh o unico jeito de recuperar.", 20, 36);
     
     doc.setLineWidth(0.5);
-    doc.line(20, 45, 190, 45); // Linha horizontal
+    doc.line(20, 45, 190, 45);
 
     doc.setFontSize(16);
     doc.text(`Usuario: ${username}`, 20, 60);
     
     doc.setFontSize(16);
-    // Nota: Em um app real, evitamos imprimir a senha, mas para o Kit de Resgate é necessário.
     doc.text(`Senha Mestra: ${senha}`, 20, 75);
 
     doc.setFontSize(10);
@@ -75,7 +71,6 @@ function Cadastro() {
     doc.text(`Criado em: ${new Date().toLocaleString()}`, 20, 100);
     doc.text("Tecnologia: Zero-Knowledge Encryption (AES-256)", 20, 110);
 
-    // Salvar o arquivo no computador do usuário
     doc.save(`SecureVault_Kit_Emergencia_${username}.pdf`);
   }
 
@@ -83,12 +78,10 @@ function Cadastro() {
     navigate('/login');
   }
 
-  // --- RENDERIZAÇÃO ---
   return (
     <div className="container" style={{maxWidth: '450px'}}>
       
       {!contaCriada ? (
-        // TELA 1: FORMULÁRIO DE CADASTRO
         <>
           <div className="header">
             <span className="icon-lock">📝</span>
@@ -111,7 +104,6 @@ function Cadastro() {
           </button>
         </>
       ) : (
-        // TELA 2: SUCESSO E DOWNLOAD
         <div style={{textAlign: 'center'}}>
           <div className="header">
             <span className="icon-lock" style={{color: '#10b981'}}>✅</span>

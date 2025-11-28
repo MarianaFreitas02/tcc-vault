@@ -15,8 +15,7 @@ function Login() {
     setStatus("⏳ Buscando credenciais...");
 
     try {
-      // 1. Pedir o SALT do usuário para o servidor
-      // Sem o salt, não conseguimos recriar a chave matemática.
+      // 1. Pedir o SALT (URL Dinâmica)
       const respSalt = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/salt/${username}`);
       
       if (!respSalt.ok) {
@@ -27,23 +26,21 @@ function Login() {
 
       setStatus("🔐 Processando criptografia...");
 
-      // 2. ZK Flow: Recriar a Chave Mestra usando a senha e o Salt que veio do banco
+      // 2. ZK Flow
       const { key } = await derivarChaveMestra(senha, salt);
 
-      // 3. Gerar o Hash de Autenticação para provar quem somos
+      // 3. Gerar Hash
       const authHash = await gerarHashDeAutenticacao(key);
 
-      // 4. Tentar Logar
+      // 4. Tentar Logar (URL Dinâmica)
       const resposta = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, authHash })
       });
 
-      if (respLogin.ok) {
-        // SUCESSO!
-        // Aqui está o segredo: Passamos a 'key' (Chave Mestra) para a próxima tela via memória.
-        // Se o usuário der F5 no Dashboard, ele perde essa chave (Segurança máxima).
+      // CORREÇÃO: A variável acima chama 'resposta', não 'respLogin'
+      if (resposta.ok) {
         navigate('/dashboard', { state: { chaveMestra: key, usuario: username } });
       } else {
         setStatus("⛔ Senha incorreta!");
