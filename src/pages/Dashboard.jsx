@@ -73,7 +73,7 @@ function Dashboard() {
           conteudo: bufferParaBase64(conteudoCifrado)
         };
 
-        const resp = await fetch('http://localhost:3000/api/salvar', {
+        const resposta = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/salvar`, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(payload)

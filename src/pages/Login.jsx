@@ -17,7 +17,7 @@ function Login() {
     try {
       // 1. Pedir o SALT do usuário para o servidor
       // Sem o salt, não conseguimos recriar a chave matemática.
-      const respSalt = await fetch(`http://localhost:3000/api/auth/salt/${username}`);
+      const respSalt = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/salt/${username}`);
       
       if (!respSalt.ok) {
         return setStatus("❌ Usuário não encontrado.");
@@ -34,7 +34,7 @@ function Login() {
       const authHash = await gerarHashDeAutenticacao(key);
 
       // 4. Tentar Logar
-      const respLogin = await fetch('http://localhost:3000/api/auth/login', {
+      const resposta = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, authHash })
