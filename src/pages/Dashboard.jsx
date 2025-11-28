@@ -9,24 +9,24 @@ function Dashboard() {
   const navigate = useNavigate();
   const { chaveMestra, usuario } = location.state || {};
 
-  // Estados
+  // Estados de Dados
   const [listaItens, setListaItens] = useState([]);
-  const [modalAberto, setModalAberto] = useState(false);
-  const [abaAtiva, setAbaAtiva] = useState('arquivo'); // 'arquivo' ou 'senha'
   
-  // Inputs do Formulário
+  // NOVO: Estado para saber qual aba da esquerda está selecionada
+  const [filtro, setFiltro] = useState('todos'); // 'todos', 'texto', 'arquivo'
+
+  // Estados de UI (Modais)
+  const [modalAberto, setModalAberto] = useState(false);
+  const [abaAtiva, setAbaAtiva] = useState('arquivo'); // No modal de criar: 'arquivo' ou 'senha'
   const [tituloItem, setTituloItem] = useState("");
   const [textoSenha, setTextoSenha] = useState("");
   const [arquivoSelecionado, setArquivoSelecionado] = useState(null);
-
-  // Estados de Visualização
-  const [itemAberto, setItemAberto] = useState(null); // Conteúdo do item aberto
+  const [itemAberto, setItemAberto] = useState(null);
   const [status, setStatus] = useState("");
 
-  // SEU LINK DO RENDER (MANTIDO)
+  // SEU LINK DO RENDER
   const API_URL = "https://tcc-backend-4ept.onrender.com";
 
-  // 1. SEGURANÇA
   useEffect(() => {
     if (!chaveMestra || !usuario) {
       navigate('/login', { replace: true });
@@ -35,7 +35,6 @@ function Dashboard() {
     }
   }, [chaveMestra, usuario, navigate]);
 
-  // 2. BUSCAR LISTA
   async function carregarLista() {
     try {
       const resp = await fetch(`${API_URL}/api/meus-arquivos/${usuario}`);
@@ -46,20 +45,25 @@ function Dashboard() {
     }
   }
 
-  // 3. SALVAR (ARQUIVO OU SENHA)
+  // --- LÓGICA DE FILTRAGEM (NOVO) ---
+  // Isso decide o que aparece na tela com base no botão clicado na esquerda
+  const itensFiltrados = listaItens.filter(item => {
+    if (filtro === 'todos') return true;
+    if (filtro === 'texto') return item.tipoArquivo === 'secret/text';
+    if (filtro === 'arquivo') return item.tipoArquivo !== 'secret/text';
+    return true;
+  });
+
   async function handleSalvar() {
     if (!tituloItem) return alert("Dê um título para este item!");
-    
     setStatus("Criptografando...");
     
     try {
       let bytesParaCifrar;
       let tipoMime;
 
-      // A. PREPARAR OS DADOS (ARQUIVO vs TEXTO)
       if (abaAtiva === 'arquivo') {
         if (!arquivoSelecionado) return alert("Selecione um arquivo!");
-        // Ler arquivo como bytes
         const reader = new FileReader();
         bytesParaCifrar = await new Promise((resolve) => {
           reader.onload = () => resolve(reader.result);
@@ -68,24 +72,19 @@ function Dashboard() {
         tipoMime = arquivoSelecionado.type;
       } else {
         if (!textoSenha) return alert("Digite a senha/nota!");
-        // Ler texto como bytes
         const encoder = new TextEncoder();
         bytesParaCifrar = encoder.encode(textoSenha);
-        tipoMime = 'secret/text'; // Tipo especial que inventamos pra saber que é texto
+        tipoMime = 'secret/text'; 
       }
 
-      // B. CRIPTOGRAFAR
       const iv = window.crypto.getRandomValues(new Uint8Array(12));
       const conteudoCifrado = await window.crypto.subtle.encrypt(
-        { name: "AES-GCM", iv: iv }, 
-        chaveMestra, 
-        bytesParaCifrar
+        { name: "AES-GCM", iv: iv }, chaveMestra, bytesParaCifrar
       );
 
-      // C. ENVIAR
       const payload = {
         dono: usuario,
-        nomeOriginal: tituloItem, // Agora usamos o título que o usuário digitou
+        nomeOriginal: tituloItem,
         tipoArquivo: tipoMime,
         iv: bufferParaBase64(iv),
         conteudo: bufferParaBase64(conteudoCifrado)
@@ -113,7 +112,6 @@ function Dashboard() {
     }
   }
 
-  // 4. ABRIR ITEM
   async function abrirItem(id) {
     setItemAberto(null);
     setStatus("Baixando e Descriptografando...");
@@ -126,12 +124,9 @@ function Dashboard() {
       const conteudo = base64ParaBuffer(dados.conteudo);
 
       const bytesDecifrados = await window.crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: iv }, 
-        chaveMestra, 
-        conteudo
+        { name: "AES-GCM", iv: iv }, chaveMestra, conteudo
       );
 
-      // VERIFICA SE É TEXTO OU ARQUIVO
       if (dados.tipoArquivo === 'secret/text') {
         const decoder = new TextDecoder();
         const textoRevelado = decoder.decode(bytesDecifrados);
@@ -144,7 +139,7 @@ function Dashboard() {
       setStatus("");
 
     } catch (error) {
-      alert("Erro ao descriptografar. Chave inválida ou dados corrompidos.");
+      alert("Erro ao descriptografar.");
       setStatus("");
     }
   }
@@ -162,15 +157,33 @@ function Dashboard() {
   return (
     <div className="dashboard-layout">
       
-      {/* 1. BARRA LATERAL (SIDEBAR) */}
+      {/* 1. BARRA LATERAL (SIDEBAR) ATUALIZADA */}
       <div className="sidebar">
         <div className="logo-area">
           <span style={{color: '#3b82f6'}}>🛡️</span> SecureVault
         </div>
         
-        <button className="nav-btn active">📂 Todos os Itens</button>
-        <button className="nav-btn">🔑 Senhas</button>
-        <button className="nav-btn">🖼️ Documentos</button>
+        {/* Agora os botões mudam o estado do 'filtro' */}
+        <button 
+          className={`nav-btn ${filtro === 'todos' ? 'active' : ''}`} 
+          onClick={() => setFiltro('todos')}
+        >
+          📂 Todos os Itens
+        </button>
+        
+        <button 
+          className={`nav-btn ${filtro === 'texto' ? 'active' : ''}`} 
+          onClick={() => setFiltro('texto')}
+        >
+          🔑 Senhas
+        </button>
+        
+        <button 
+          className={`nav-btn ${filtro === 'arquivo' ? 'active' : ''}`} 
+          onClick={() => setFiltro('arquivo')}
+        >
+          🖼️ Documentos
+        </button>
         
         <div style={{marginTop: 'auto'}}>
           <div style={{padding: '10px', fontSize: '0.9rem', color: '#64748b'}}>
@@ -183,15 +196,19 @@ function Dashboard() {
       {/* 2. ÁREA PRINCIPAL */}
       <div className="main-content">
         <div className="header-content">
-          <h2>Meu Cofre</h2>
+          <h2>Meu Cofre {filtro !== 'todos' ? `(${filtro === 'texto' ? 'Senhas' : 'Arquivos'})` : ''}</h2>
           <button className="btn-primary" style={{width: 'auto'}} onClick={() => setModalAberto(true)}>
             + Adicionar Novo
           </button>
         </div>
 
-        {/* GRID DE CARDS */}
+        {/* GRID USANDO A LISTA FILTRADA */}
         <div className="items-grid">
-          {listaItens.map(item => (
+          {itensFiltrados.length === 0 && (
+            <p style={{color: '#64748b'}}>Nenhum item encontrado nesta categoria.</p>
+          )}
+
+          {itensFiltrados.map(item => (
             <div key={item._id} className="item-card" onClick={() => abrirItem(item._id)}>
               <div className="card-icon">
                 {item.tipoArquivo === 'secret/text' ? '🔑' : '📄'}
@@ -205,7 +222,7 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* 3. MODAL DE ADICIONAR (Pop-up) */}
+      {/* 3. MODAIS (ADICIONAR E VISUALIZAR) - IGUAIS AO ANTERIOR */}
       {modalAberto && (
         <div className="modal-overlay">
           <div className="modal">
@@ -213,20 +230,12 @@ function Dashboard() {
               <h3>Guardar no Cofre</h3>
               <button className="btn-close" onClick={() => setModalAberto(false)}>✕</button>
             </div>
-
             <div className="tabs">
               <button className={`tab ${abaAtiva === 'arquivo' ? 'active' : ''}`} onClick={() => setAbaAtiva('arquivo')}>Arquivo</button>
               <button className={`tab ${abaAtiva === 'senha' ? 'active' : ''}`} onClick={() => setAbaAtiva('senha')}>Senha / Nota</button>
             </div>
-
-            <label>Título (Ex: Foto RG ou Senha Instagram)</label>
-            <input 
-              type="text" 
-              placeholder="Nome do item..." 
-              value={tituloItem} 
-              onChange={e => setTituloItem(e.target.value)} 
-            />
-
+            <label>Título</label>
+            <input type="text" placeholder="Nome do item..." value={tituloItem} onChange={e => setTituloItem(e.target.value)} />
             {abaAtiva === 'arquivo' ? (
               <>
                 <label>Selecione o Arquivo:</label>
@@ -235,23 +244,14 @@ function Dashboard() {
             ) : (
               <>
                 <label>Conteúdo Secreto:</label>
-                <textarea 
-                  rows="4" 
-                  placeholder="Digite a senha ou nota aqui..." 
-                  value={textoSenha}
-                  onChange={e => setTextoSenha(e.target.value)}
-                ></textarea>
+                <textarea rows="4" placeholder="Senha..." value={textoSenha} onChange={e => setTextoSenha(e.target.value)}></textarea>
               </>
             )}
-
-            <button className="btn-primary" onClick={handleSalvar}>
-              {status || "Criptografar e Salvar"}
-            </button>
+            <button className="btn-primary" onClick={handleSalvar}>{status || "Criptografar e Salvar"}</button>
           </div>
         </div>
       )}
 
-      {/* 4. MODAL DE VISUALIZAÇÃO (Pop-up de arquivo aberto) */}
       {itemAberto && (
         <div className="modal-overlay" onClick={() => setItemAberto(null)}>
           <div className="preview-modal" onClick={e => e.stopPropagation()}>
@@ -259,19 +259,10 @@ function Dashboard() {
               <h3 style={{margin: 0, color: '#10b981'}}>🔓 {itemAberto.nome}</h3>
               <button className="btn-close" onClick={() => setItemAberto(null)}>✕</button>
             </div>
-
             {itemAberto.tipo === 'texto' ? (
               <div style={{background: '#0f172a', padding: '20px', borderRadius: '8px', border: '1px dashed #334155'}}>
-                <p style={{fontFamily: 'monospace', fontSize: '1.2rem', wordBreak: 'break-all'}}>
-                  {itemAberto.conteudo}
-                </p>
-                <button 
-                  className="btn-primary" 
-                  style={{marginTop: '10px'}}
-                  onClick={() => navigator.clipboard.writeText(itemAberto.conteudo).then(() => alert("Copiado!"))}
-                >
-                  Copiar
-                </button>
+                <p style={{fontFamily: 'monospace', fontSize: '1.2rem', wordBreak: 'break-all'}}>{itemAberto.conteudo}</p>
+                <button className="btn-primary" style={{marginTop: '10px'}} onClick={() => navigator.clipboard.writeText(itemAberto.conteudo).then(() => alert("Copiado!"))}>Copiar</button>
               </div>
             ) : (
               <div style={{textAlign: 'center'}}>
@@ -287,7 +278,6 @@ function Dashboard() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
