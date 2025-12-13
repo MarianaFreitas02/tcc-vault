@@ -62,7 +62,14 @@ export default function Login() {
       });
 
       if (resposta.ok) {
-        navigate('/dashboard', { state: { chaveMestra: key, usuario: identificacao } });
+        // CORREÇÃO: Enviamos 'usernameComSufixo' (que é o CPF limpo + sufixo) 
+        // em vez de 'identificacao' (que tem pontos)
+        navigate('/dashboard', { 
+            state: { 
+                chaveMestra: key, 
+                usuario: usernameComSufixo // <--- ISSO AQUI É IMPORTANTE
+            } 
+        });
       } else {
         setStatus("⛔ NEGADO: Credenciais Inválidas.");
       }
