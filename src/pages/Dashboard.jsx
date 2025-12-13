@@ -1,267 +1,218 @@
-// src/pages/Dashboard.jsx
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { bufferParaBase64, base64ParaBuffer } from '../crypto';
+import AIChatBox from '../components/AIChatBox';
 import '../App.css';
+import { Shield, Lock, FileText, Folder, HardDrive, Plus, LogOut, Terminal } from 'lucide-react';
 
-function Dashboard() {
-  const location = useLocation();
+export default function Dashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { chaveMestra, usuario } = location.state || {};
 
   const [listaItens, setListaItens] = useState([]);
-  const [filtro, setFiltro] = useState('todos');
-  const [modalAberto, setModalAberto] = useState(false);
-  const [abaAtiva, setAbaAtiva] = useState('arquivo');
-  const [tituloItem, setTituloItem] = useState("");
-  const [textoSenha, setTextoSenha] = useState("");
-  const [arquivoSelecionado, setArquivoSelecionado] = useState(null);
-  const [itemAberto, setItemAberto] = useState(null);
-  const [status, setStatus] = useState("");
+  const [filtro, setFiltro] = useState('todos'); // 'todos', 'text', 'file'
+  
+  // Modais
+  const [modalNovo, setModalNovo] = useState(false);
+  const [modalVer, setModalVer] = useState(null);
+  const [abaForm, setAbaForm] = useState('arquivo');
+  
+  // Formulario
+  const [titulo, setTitulo] = useState("");
+  const [conteudoTexto, setConteudoTexto] = useState("");
+  const [arquivo, setArquivo] = useState(null);
 
   const API_URL = "https://tcc-backend-4ept.onrender.com";
 
   useEffect(() => {
-    if (!chaveMestra || !usuario) {
-      navigate('/login', { replace: true });
-    } else {
-      carregarLista();
-    }
-  }, [chaveMestra, usuario, navigate]);
+    if (!chaveMestra) navigate('/login');
+    else carregarDados();
+  }, []);
 
-  async function carregarLista() {
+  async function carregarDados() {
     try {
-      const resp = await fetch(`${API_URL}/api/meus-arquivos/${usuario}`);
-      const dados = await resp.json();
+      const res = await fetch(`${API_URL}/api/meus-arquivos/${usuario}`);
+      const dados = await res.json();
       setListaItens(dados);
-    } catch (error) {
-      console.error("Erro ao carregar", error);
-    }
+    } catch (e) { console.error("Erro Conexão Tática"); }
   }
 
-  const itensFiltrados = listaItens.filter(item => {
+  const itensVisiveis = listaItens.filter(item => {
     if (filtro === 'todos') return true;
-    if (filtro === 'texto') return item.tipoArquivo === 'secret/text';
-    if (filtro === 'arquivo') return item.tipoArquivo !== 'secret/text';
-    return true;
+    if (filtro === 'text') return item.tipoArquivo === 'secret/text';
+    return item.tipoArquivo !== 'secret/text';
   });
 
+  // --- LÓGICA MANTIDA ---
   async function handleSalvar() {
-    if (!tituloItem) return alert("Dê um título para este item!");
-    setStatus("Criptografando...");
-    
-    try {
-      let bytesParaCifrar;
-      let tipoMime;
-
-      if (abaAtiva === 'arquivo') {
-        if (!arquivoSelecionado) return alert("Selecione um arquivo!");
-        const reader = new FileReader();
-        bytesParaCifrar = await new Promise((resolve) => {
-          reader.onload = () => resolve(reader.result);
-          reader.readAsArrayBuffer(arquivoSelecionado);
-        });
-        tipoMime = arquivoSelecionado.type;
-      } else {
-        if (!textoSenha) return alert("Digite a senha/nota!");
-        const encoder = new TextEncoder();
-        bytesParaCifrar = encoder.encode(textoSenha);
-        tipoMime = 'secret/text'; 
-      }
-
-      const iv = window.crypto.getRandomValues(new Uint8Array(12));
-      const conteudoCifrado = await window.crypto.subtle.encrypt(
-        { name: "AES-GCM", iv: iv }, chaveMestra, bytesParaCifrar
-      );
-
-      const payload = {
-        dono: usuario,
-        nomeOriginal: tituloItem,
-        tipoArquivo: tipoMime,
-        iv: bufferParaBase64(iv),
-        conteudo: bufferParaBase64(conteudoCifrado)
-      };
-
-      const resp = await fetch(`${API_URL}/api/salvar`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(payload)
-      });
-
-      if (resp.ok) {
-        setModalAberto(false);
-        limparFormulario();
-        carregarLista();
-        alert("Item salvo com segurança!");
-      } else {
-        alert("Erro ao salvar.");
-      }
-      setStatus("");
-
-    } catch (error) {
-      console.error(error);
-      setStatus("Erro técnico.");
+    if (!titulo) return alert("ERRO: Título ausente.");
+    let bytes, mime;
+    if (abaForm === 'arquivo') {
+      if (!arquivo) return alert("ERRO: Arquivo não selecionado.");
+      bytes = await arquivo.arrayBuffer();
+      mime = arquivo.type;
+    } else {
+      if (!conteudoTexto) return alert("ERRO: Conteúdo vazio.");
+      bytes = new TextEncoder().encode(conteudoTexto);
+      mime = 'secret/text';
     }
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+    const cifrado = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv }, chaveMestra, bytes);
+    
+    await fetch(`${API_URL}/api/salvar`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        dono: usuario, nomeOriginal: titulo, tipoArquivo: mime,
+        iv: bufferParaBase64(iv), conteudo: bufferParaBase64(cifrado)
+      })
+    });
+    setModalNovo(false); setTitulo(""); setConteudoTexto(""); setArquivo(null); carregarDados();
   }
 
   async function abrirItem(id) {
-    setItemAberto(null);
-    setStatus("Baixando e Descriptografando...");
-
-    try {
-      const resp = await fetch(`${API_URL}/api/arquivo/${id}`);
-      const dados = await resp.json();
-
-      const iv = base64ParaBuffer(dados.iv);
-      const conteudo = base64ParaBuffer(dados.conteudo);
-
-      const bytesDecifrados = await window.crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: iv }, chaveMestra, conteudo
-      );
-
-      if (dados.tipoArquivo === 'secret/text') {
-        const decoder = new TextDecoder();
-        const textoRevelado = decoder.decode(bytesDecifrados);
-        setItemAberto({ tipo: 'texto', conteudo: textoRevelado, nome: dados.nomeOriginal });
-      } else {
-        const blob = new Blob([bytesDecifrados], { type: dados.tipoArquivo });
-        const url = URL.createObjectURL(blob);
-        setItemAberto({ tipo: 'arquivo', url: url, nome: dados.nomeOriginal, mime: dados.tipoArquivo });
-      }
-      setStatus("");
-
-    } catch (error) {
-      alert("Erro ao descriptografar.");
-      setStatus("");
+    const res = await fetch(`${API_URL}/api/arquivo/${id}`);
+    const item = await res.json();
+    const iv = base64ParaBuffer(item.iv);
+    const cifrado = base64ParaBuffer(item.conteudo);
+    const decifrado = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv }, chaveMestra, cifrado);
+    
+    if (item.tipoArquivo === 'secret/text') {
+      const texto = new TextDecoder().decode(decifrado);
+      setModalVer({ ...item, conteudoReal: texto, tipo: 'texto' });
+    } else {
+      const url = URL.createObjectURL(new Blob([decifrado], { type: item.tipoArquivo }));
+      setModalVer({ ...item, url, tipo: 'arquivo' });
     }
   }
 
-  function limparFormulario() {
-    setTituloItem("");
-    setTextoSenha("");
-    setArquivoSelecionado(null);
-  }
-
-  function sair() {
-    navigate('/login', { replace: true });
-  }
-
   return (
-    <div className="dashboard-layout">
+    <div className="tactical-layout">
       
-      {/* SIDEBAR */}
-      <div className="sidebar">
-        <div className="logo-area">
-          <span style={{color: '#3b82f6'}}>🛡️</span> SecureVault
-        </div>
-        <button className={`nav-btn ${filtro === 'todos' ? 'active' : ''}`} onClick={() => setFiltro('todos')}>📂 Todos os Itens</button>
-        <button className={`nav-btn ${filtro === 'texto' ? 'active' : ''}`} onClick={() => setFiltro('texto')}>🔑 Senhas</button>
-        <button className={`nav-btn ${filtro === 'arquivo' ? 'active' : ''}`} onClick={() => setFiltro('arquivo')}>🖼️ Documentos</button>
-        <div style={{marginTop: 'auto'}}>
-          <div style={{padding: '10px', fontSize: '0.9rem', color: '#64748b'}}>Usuário: <strong style={{color: 'white'}}>{usuario}</strong></div>
-          <button className="nav-btn logout-btn" onClick={sair}>Sair</button>
-        </div>
-      </div>
-
-      {/* CONTEÚDO */}
-      <div className="main-content">
-        <div className="header-content">
-          <h2>Meu Cofre {filtro !== 'todos' ? `(${filtro === 'texto' ? 'Senhas' : 'Arquivos'})` : ''}</h2>
-          <button className="btn-primary" style={{width: 'auto'}} onClick={() => setModalAberto(true)}>+ Adicionar Novo</button>
+      {/* SIDEBAR TÁTICA */}
+      <aside className="tactical-sidebar">
+        <div className="brand-box">
+          <Shield size={32} />
+          <div className="brand-text">
+            <h1>SECURE_VAULT</h1>
+            <span>GOV.SYSTEM.V2</span>
+          </div>
         </div>
 
-{/* Painel de Status Fake - Só visual */}
-<div style={{
-  background: 'rgba(6, 182, 212, 0.1)', 
-  border: '1px solid var(--neon-cyan)', 
-  padding: '15px', 
-  borderRadius: '12px', 
-  marginBottom: '30px',
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center'
-}}>
-  <div>
-    <h4 style={{margin: 0, color: 'var(--neon-cyan)'}}>Status do Cofre: SEGURO</h4>
-    <small style={{color: '#94a3b8'}}>Criptografia AES-256-GCM Ativa • Chaves na Memória RAM</small>
-  </div>
-  <div style={{fontSize: '2rem'}}>🛡️</div>
-</div>
-        <div className="items-grid">
-          {itensFiltrados.length === 0 && <p style={{color: '#64748b'}}>Nenhum item encontrado.</p>}
-          {itensFiltrados.map(item => (
-            <div key={item._id} className="item-card" onClick={() => abrirItem(item._id)}>
-              <div className="card-icon">{item.tipoArquivo === 'secret/text' ? '🔑' : '📄'}</div>
-              <div className="card-title">{item.nomeOriginal}</div>
-              <div className="card-meta">{new Date(item.dataUpload).toLocaleDateString()}</div>
+        <div className="nav-section">
+          <p className="nav-label">DIRETÓRIOS</p>
+          <button className={`nav-btn ${filtro === 'todos' ? 'active' : ''}`} onClick={() => setFiltro('todos')}>
+            <HardDrive size={18} /> [ RAIZ ]
+          </button>
+          <button className={`nav-btn ${filtro === 'text' ? 'active' : ''}`} onClick={() => setFiltro('text')}>
+            <Terminal size={18} /> [ CÓDIGOS ]
+          </button>
+          <button className={`nav-btn ${filtro === 'file' ? 'active' : ''}`} onClick={() => setFiltro('file')}>
+            <Folder size={18} /> [ ARQUIVOS ]
+          </button>
+        </div>
+
+        <div className="system-info">
+          <p>STATUS: <span className="status-ok">ONLINE</span></p>
+          <p>AGENTE: {usuario?.toUpperCase()}</p>
+          <p>IP: 10.22.4.1 (MASKED)</p>
+          <button onClick={() => navigate('/login')} className="btn-logout">[ DESCONECTAR ]</button>
+        </div>
+      </aside>
+
+      {/* ÁREA PRINCIPAL */}
+      <main className="tactical-main">
+        <header className="main-header">
+          <div className="path-display">
+            /HOME/USER/{usuario ? usuario.toUpperCase() : 'UNKNOWN'}/VAULT/
+          </div>
+          <button className="btn-add" onClick={() => setModalNovo(true)}>
+            <Plus size={16} /> NOVA ENTRADA
+          </button>
+        </header>
+
+        <div className="data-grid">
+          {itensVisiveis.map(item => (
+            <div key={item._id} className="data-card" onClick={() => abrirItem(item._id)}>
+              <div className="card-header">
+                <span className="file-id">ID: {item._id.slice(-6).toUpperCase()}</span>
+                {item.tipoArquivo === 'secret/text' ? <Lock size={14} /> : <FileText size={14} />}
+              </div>
+              <div className="card-body">
+                <h3>{item.nomeOriginal}</h3>
+              </div>
+              <div className="card-footer">
+                <span>{new Date(item.dataUpload).toLocaleDateString()}</span>
+                <span className="security-tag">AES-256</span>
+              </div>
             </div>
           ))}
+          {itensVisiveis.length === 0 && (
+            <div className="empty-terminal">
+              <p>{'>'} NENHUM DADO ENCONTRADO NO SETOR.</p>
+              <p>{'>'} AGUARDANDO NOVAS ENTRADAS...</p>
+            </div>
+          )}
         </div>
-      </div>
+      </main>
 
-      {/* MODAL ADICIONAR */}
-      {modalAberto && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '20px'}}>
-              <h3>Guardar no Cofre</h3>
-              <button className="btn-close" onClick={() => setModalAberto(false)}>✕</button>
+      <AIChatBox />
+
+      {/* MODAIS TÁTICOS */}
+      {modalNovo && (
+        <div className="modal-screen">
+          <div className="modal-window">
+            <div className="modal-title">
+              <h3>{'>'} INSERIR NOVO REGISTRO</h3>
+              <button onClick={() => setModalNovo(false)}>X</button>
             </div>
-            <div className="tabs">
-              <button className={`tab ${abaAtiva === 'arquivo' ? 'active' : ''}`} onClick={() => setAbaAtiva('arquivo')}>Arquivo</button>
-              <button className={`tab ${abaAtiva === 'senha' ? 'active' : ''}`} onClick={() => setAbaAtiva('senha')}>Senha / Nota</button>
+            
+            <div className="type-selector">
+              <button className={abaForm==='arquivo' ? 'selected' : ''} onClick={()=>setAbaForm('arquivo')}>ARQUIVO BINÁRIO</button>
+              <button className={abaForm==='senha' ? 'selected' : ''} onClick={()=>setAbaForm('senha')}>TEXTO/CÓDIGO</button>
             </div>
-            <label>Título</label>
-            <input type="text" placeholder="Nome do item..." value={tituloItem} onChange={e => setTituloItem(e.target.value)} />
-            {abaAtiva === 'arquivo' ? (
-              <>
-                <label>Selecione o Arquivo:</label>
-                <input type="file" onChange={e => setArquivoSelecionado(e.target.files[0])} />
-              </>
+
+            <div className="form-group">
+              <label>IDENTIFICADOR (TÍTULO):</label>
+              <input value={titulo} onChange={e=>setTitulo(e.target.value)} autoFocus />
+            </div>
+            
+            {abaForm === 'arquivo' ? (
+              <div className="form-group">
+                <label>CARREGAR FONTE:</label>
+                <input type="file" onChange={e=>setArquivo(e.target.files[0])} />
+              </div>
             ) : (
-              <>
-                <label>Conteúdo Secreto:</label>
-                <textarea rows="4" placeholder="Senha..." value={textoSenha} onChange={e => setTextoSenha(e.target.value)}></textarea>
-              </>
+              <div className="form-group">
+                <label>DADOS SENSÍVEIS:</label>
+                <textarea rows="5" value={conteudoTexto} onChange={e=>setConteudoTexto(e.target.value)} />
+              </div>
             )}
-            <button className="btn-primary" onClick={handleSalvar}>{status || "Criptografar e Salvar"}</button>
+
+            <button className="btn-execute" onClick={handleSalvar}>[ EXECUTAR CRIPTOGRAFIA ]</button>
           </div>
         </div>
       )}
 
-      {/* MODAL VISUALIZAR (MODIFICADO: SEM BOTÃO COPIAR E COM BLUR) */}
-      {itemAberto && (
-        <div className="modal-overlay" onClick={() => setItemAberto(null)}>
-          <div className="preview-modal" onClick={e => e.stopPropagation()}>
-            <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '15px'}}>
-              <h3 style={{margin: 0, color: '#10b981'}}>🔓 {itemAberto.nome}</h3>
-              <button className="btn-close" onClick={() => setItemAberto(null)}>✕</button>
+      {modalVer && (
+        <div className="modal-screen" onClick={()=>setModalVer(null)}>
+          <div className="modal-window view" onClick={e=>e.stopPropagation()}>
+             <div className="modal-title">
+              <h3>{'>'} DESCRIPTOGRAFIA CONCLUÍDA</h3>
+              <button onClick={()=>setModalVer(null)}>X</button>
             </div>
-            {itemAberto.tipo === 'texto' ? (
-              <div style={{background: '#0a0a0a', padding: '20px', borderRadius: '8px', border: '1px dashed #334155'}}>
-                <p style={{color: '#94a3b8', fontSize: '0.8rem', marginBottom: '5px'}}>Passe o mouse para revelar:</p>
-                {/* AQUI ESTÁ A CLASSE NOVA 'secret-blur' */}
-                <p className="secret-blur" style={{fontFamily: 'monospace', fontSize: '1.5rem', wordBreak: 'break-all', color: '#fff', margin: 0}}>
-                  {itemAberto.conteudo}
-                </p>
-                {/* Botão Copiar REMOVIDO daqui */}
-              </div>
-            ) : (
-              <div style={{textAlign: 'center'}}>
-                {itemAberto.mime.includes('image') ? (
-                  <img src={itemAberto.url} style={{maxWidth: '100%', maxHeight: '60vh'}} alt="Secreto" />
-                ) : (
-                  <iframe src={itemAberto.url} style={{width: '100%', height: '60vh', border: 'none'}} title="Preview"></iframe>
-                )}
-                <br/><br/>
-                <a href={itemAberto.url} download={itemAberto.nome} style={{color: '#3b82f6'}}>⬇️ Baixar Arquivo Original</a>
-              </div>
-            )}
+            <div className="view-container">
+              {modalVer.tipo === 'texto' ? (
+                 <pre className="code-view">{modalVer.conteudoReal}</pre>
+              ) : (
+                 modalVer.tipoArquivo.includes('image') ? <img src={modalVer.url} className="img-view" /> : <a href={modalVer.url} download={modalVer.nomeOriginal} className="link-download">[ BAIXAR ARQUIVO ]</a>
+              )}
+            </div>
           </div>
         </div>
       )}
+
     </div>
   );
 }
-
-export default Dashboard;
