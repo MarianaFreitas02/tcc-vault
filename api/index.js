@@ -1,27 +1,39 @@
-const express = require('express');
-const cors = require('cors');
-const mongoose = require('mongoose');
+import express from 'express';
+import cors from 'cors';
+import mongoose from 'mongoose';
+
 const app = express();
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-// SUA STRING DE CONEXÃO
+// ⚠️ MANTENHA SUA STRING DE CONEXÃO AQUI
 const URI_DO_BANCO = "mongodb+srv://admin:tcc123@cluster0.2qo05lt.mongodb.net/?appName=Cluster0";
 
-mongoose.connect(URI_DO_BANCO)
-    .then(() => console.log("✅ Conectado ao MongoDB Atlas!"))
-    .catch((erro) => console.error("❌ Erro no banco:", erro));
+let isConnected = false;
 
-// MODELOS
-const UsuarioSchema = new mongoose.Schema({
+async function connectToDatabase() {
+  if (isConnected) return;
+  
+  try {
+    const db = await mongoose.connect(URI_DO_BANCO);
+    isConnected = db.connections[0].readyState;
+    console.log("✅ Conectado ao MongoDB");
+  } catch (error) {
+    console.error("❌ Erro ao conectar no Mongo:", error);
+    throw error;
+  }
+}
+
+// --- MODELOS ---
+// Verifica se o modelo já existe para evitar erro de recompile na Vercel
+const Usuario = mongoose.models.Usuario || mongoose.model('Usuario', new mongoose.Schema({
     username: { type: String, unique: true, required: true },
     salt: String,
     authHash: String
-});
-const Usuario = mongoose.model('Usuario', UsuarioSchema);
+}));
 
-const ArquivoSchema = new mongoose.Schema({
+const Arquivo = mongoose.models.Arquivo || mongoose.model('Arquivo', new mongoose.Schema({
     dono: String,
     salt: String,
     iv: String,
@@ -29,58 +41,64 @@ const ArquivoSchema = new mongoose.Schema({
     tipoArquivo: String,
     nomeOriginal: String,
     dataUpload: { type: Date, default: Date.now }
+}));
+
+// --- ROTA DE DEBUG ---
+app.get('/api/debug', (req, res) => {
+    res.json({ status: "API Online (ESM Mode)", mongoStatus: isConnected ? "Conectado" : "Desconectado" });
 });
-const Arquivo = mongoose.model('Arquivo', ArquivoSchema);
 
-// ROTA RAIZ
-app.get('/', (req, res) => {
-    res.status(200).send('<body style="background:black;color:#00ff41"><h1>SYSTEM STATUS: ONLINE</h1></body>');
-});
-
-// === ROTAS AUTH ===
-
-// ROTA DEFINITIVA: /api/auth/register
+// --- ROTA REGISTER ---
 app.post('/api/auth/register', async (req, res) => {
     try {
+        await connectToDatabase();
+
         const { username, salt, authHash } = req.body;
         
-        // Verifica duplicidade
+        if(!username || !authHash) {
+            return res.status(400).json({ erro: "Dados incompletos" });
+        }
+
         const usuarioExistente = await Usuario.findOne({ username });
-        if (usuarioExistente) return res.status(400).json({ erro: "Usuário/CPF já existe no sistema!" });
+        if (usuarioExistente) return res.status(400).json({ erro: "Usuário já existe!" });
 
         const novoUsuario = new Usuario({ username, salt, authHash });
         await novoUsuario.save();
 
         res.json({ mensagem: "Sucesso!" });
     } catch (erro) {
-        console.error(erro);
-        res.status(500).json({ erro: "Erro ao registrar no banco." });
+        console.error("Erro no Registro:", erro);
+        res.status(500).json({ erro: "Erro interno", detalhe: erro.message });
     }
 });
 
+// --- ROTA SALT ---
 app.get('/api/auth/salt/:username', async (req, res) => {
     try {
+        await connectToDatabase();
         const usuario = await Usuario.findOne({ username: req.params.username });
         if (!usuario) return res.status(404).json({ erro: "Usuário não encontrado." });
         res.json({ salt: usuario.salt });
-    } catch (erro) { res.status(500).json({ erro: "Erro servidor." }); }
+    } catch (erro) {
+        res.status(500).json({ erro: erro.message });
+    }
 });
 
+// --- ROTA LOGIN ---
 app.post('/api/auth/login', async (req, res) => {
     try {
+        await connectToDatabase();
         const { username, authHash } = req.body;
         const usuario = await Usuario.findOne({ username });
-        
-        if (!usuario || usuario.authHash !== authHash) {
-            return res.status(401).json({ erro: "Credenciais inválidas." });
-        }
+        if (!usuario || usuario.authHash !== authHash) return res.status(401).json({ erro: "Inválido." });
         res.json({ mensagem: "Acesso Autorizado!", token: "sessao_valida" });
-    } catch (erro) { res.status(500).json({ erro: "Erro login." }); }
+    } catch (erro) { res.status(500).json({ erro: erro.message }); }
 });
 
-// === ROTAS ARQUIVOS ===
+// --- ROTAS ARQUIVOS ---
 app.post('/api/salvar', async (req, res) => {
     try {
+        await connectToDatabase();
         const novoArquivo = new Arquivo(req.body);
         await novoArquivo.save();
         res.json({ mensagem: "Salvo!" });
@@ -89,6 +107,7 @@ app.post('/api/salvar', async (req, res) => {
 
 app.get('/api/meus-arquivos/:username', async (req, res) => {
     try {
+        await connectToDatabase();
         const arquivos = await Arquivo.find({ dono: req.params.username }).select('-conteudo');
         res.json(arquivos);
     } catch (erro) { res.status(500).json({ erro: "Erro listar." }); }
@@ -96,21 +115,11 @@ app.get('/api/meus-arquivos/:username', async (req, res) => {
 
 app.get('/api/arquivo/:id', async (req, res) => {
     try {
+        await connectToDatabase();
         const arquivo = await Arquivo.findById(req.params.id);
         res.json(arquivo);
     } catch (erro) { res.status(500).json({ erro: "Erro baixar." }); }
 });
 
-// ... todo o código anterior ...
-
-const PORT = process.env.PORT || 3000;
-
-// OBRIGATÓRIO PARA VERCEL: Exportar a aplicação
-module.exports = app;
-
-// Só roda o servidor localmente se NÃO estiver na Vercel
-if (!process.env.VERCEL) {
-    app.listen(PORT, () => {
-        console.log(`Servidor rodando na porta ${PORT} 🚀`);
-    });
-}
+// --- PULO DO GATO PARA VERCEL (Formato Moderno) ---
+export default app;
