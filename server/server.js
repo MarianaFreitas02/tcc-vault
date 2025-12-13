@@ -102,4 +102,13 @@ app.get('/api/arquivo/:id', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Rodando na porta ${PORT}`));
+
+// A Vercel precisa exportar o app
+if (process.env.VERCEL) {
+    module.exports = app;
+} else {
+    // Para rodar localmente no seu PC
+    app.listen(PORT, () => {
+        console.log(`Rodando na porta ${PORT} 🚀`);
+    });
+}

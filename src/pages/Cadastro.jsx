@@ -24,7 +24,7 @@ export default function Cadastro() {
   const [padrao, setPadrao] = useState("");
   const [mostrarSenha, setMostrarSenha] = useState(false);
 
-  const API_URL = "https://tcc-backend-4ept.onrender.com"; 
+  const API_URL = "https://tcc-vault.vercel.app"; 
 
   const handleCpfChange = (e) => {
     let v = e.target.value.replace(/\D/g, "");

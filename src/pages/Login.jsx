@@ -13,7 +13,7 @@ export default function Login() {
   const [status, setStatus] = useState("");
   const navigate = useNavigate();
 
-  const API_URL = "https://tcc-backend-4ept.onrender.com"; 
+  const API_URL = "https://tcc-vault.vercel.app"; 
 
   const handleCpfChange = (e) => {
     let v = e.target.value.replace(/\D/g, "");

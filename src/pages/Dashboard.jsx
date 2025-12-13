@@ -27,7 +27,7 @@ export default function Dashboard() {
   const [conteudoTexto, setConteudoTexto] = useState("");
   const [arquivo, setArquivo] = useState(null);
 
-  const API_URL = "https://tcc-backend-4ept.onrender.com";
+  const API_URL = "https://tcc-vault.vercel.app";
 
   useEffect(() => {
     if (!chaveMestra) navigate('/login');
