@@ -264,3 +264,79 @@ body, html {
 ::-webkit-scrollbar-track { background: #000; }
 ::-webkit-scrollbar-thumb { background: #333; border: 1px solid #000; }
 ::-webkit-scrollbar-thumb:hover { background: var(--tac-green); }
+
+/* ESTILO DAS ABAS DE LOGIN */
+.auth-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--tac-gray);
+  padding-bottom: 20px;
+}
+
+.auth-tabs button {
+  background: transparent;
+  border: 1px solid var(--tac-gray);
+  color: #666;
+  width: 50px;
+  height: 50px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-tabs button:hover {
+  border-color: var(--tac-green);
+  color: var(--tac-green);
+  box-shadow: 0 0 10px rgba(0, 255, 65, 0.1);
+}
+
+.auth-tabs button.active {
+  background: rgba(0, 255, 65, 0.1);
+  border-color: var(--tac-green);
+  color: var(--tac-green);
+  box-shadow: 0 0 15px rgba(0, 255, 65, 0.2);
+  transform: translateY(-2px);
+}
+
+.input-group {
+  text-align: left;
+  margin-bottom: 15px;
+}
+
+.input-group label {
+  display: block;
+  color: var(--tac-green);
+  font-size: 0.75rem;
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+}
+
+/* Link de Retorno (Cadastro) */
+.link-back {
+  color: #666;
+  text-decoration: none;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  transition: 0.3s;
+  display: inline-block;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+}
+
+.link-back:hover {
+  color: var(--tac-green);
+  border: 1px solid var(--tac-green);
+  background: rgba(0, 255, 65, 0.05);
+  box-shadow: 0 0 10px rgba(0, 255, 65, 0.1);
+}
+
+/* Ajuste fino para inputs de erro */
+input::placeholder {
+  color: #333;
+  font-style: italic;
+}

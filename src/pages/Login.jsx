@@ -1,91 +1,141 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { derivarChaveMestra, gerarHashDeAutenticacao } from '../crypto';
+import PatternLock from '../components/PatternLock';
+import Logo from '../components/Logo';
 import '../App.css';
+import { Lock, Hash, Type, Grid, User } from 'lucide-react';
 
 export default function Login() {
-  const [username, setUsername] = useState("");
-  const [senha, setSenha] = useState("");
+  const [metodo, setMetodo] = useState('cpf'); // 'cpf', 'pin', 'frase', 'pattern'
+  const [identificacao, setIdentificacao] = useState("");
+  const [segredo, setSegredo] = useState("");
   const [status, setStatus] = useState("");
   const navigate = useNavigate();
 
   const API_URL = "https://tcc-backend-4ept.onrender.com"; 
 
-  async function handleLogin() {
-    if (!username || !senha) return setStatus("⚠️ Credenciais vazias");
-    setStatus("⏳ Autenticando...");
+  const handleCpfChange = (e) => {
+    let v = e.target.value.replace(/\D/g, "");
+    if (v.length > 11) v = v.slice(0, 11);
+    v = v.replace(/(\d{3})(\d)/, "$1.$2");
+    v = v.replace(/(\d{3})(\d)/, "$1.$2");
+    v = v.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+    setIdentificacao(v);
+  };
+
+  async function handleLogin(segredoFinal = segredo) {
+    if (!identificacao) return setStatus("⚠️ Identificação necessária.");
+    if (!segredoFinal) return setStatus("⚠️ Senha/Padrão vazio.");
+    
+    setStatus("⏳ PROCESSANDO ACESSO...");
 
     try {
-      const respSalt = await fetch(`${API_URL}/api/auth/salt/${username}`);
-      if (!respSalt.ok) return setStatus("❌ Usuário não encontrado");
+      const cpfLimpo = identificacao.replace(/\D/g, "");
+      const respSalt = await fetch(`${API_URL}/api/auth/salt/${cpfLimpo}`);
+      
+      if (!respSalt.ok) return setStatus("❌ Agente não encontrado.");
       
       const { salt } = await respSalt.json();
-      const { key } = await derivarChaveMestra(senha, salt);
+      const { key } = await derivarChaveMestra(segredoFinal, salt);
       const authHash = await gerarHashDeAutenticacao(key);
 
       const resposta = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, authHash })
+        body: JSON.stringify({ username: cpfLimpo, authHash })
       });
 
       if (resposta.ok) {
-        navigate('/dashboard', { state: { chaveMestra: key, usuario: username } });
+        navigate('/dashboard', { state: { chaveMestra: key, usuario: identificacao } });
       } else {
-        setStatus("⛔ Senha incorreta");
+        setStatus("⛔ NEGADO: Credenciais Inválidas.");
       }
     } catch (error) {
-      setStatus("Erro de Conexão");
+      console.error(error);
+      setStatus("Erro de Conexão.");
     }
   }
 
+  // --- LÓGICA DE ENVIO PARA CADASTRO ---
+  const irParaCadastro = () => {
+    let metodoDestino = 'senha'; // Padrão se for CPF
+    
+    if (metodo === 'pin') metodoDestino = 'pin';
+    if (metodo === 'frase') metodoDestino = 'frase';
+    if (metodo === 'pattern') metodoDestino = 'pattern';
+
+    // Vai para cadastro levando a escolha na mochila (state)
+    navigate('/cadastro', { state: { metodoInicial: metodoDestino } });
+  };
+
+  const renderInputSegredo = () => {
+    switch (metodo) {
+      case 'cpf':
+        return (
+          <div className="input-group">
+            <label>SENHA DE ACESSO</label>
+            <input type="password" placeholder="••••••••" value={segredo} onChange={e => setSegredo(e.target.value)} />
+          </div>
+        );
+      case 'pin':
+        return (
+          <div className="input-group">
+            <label>PIN DE SEGURANÇA</label>
+            <input type="tel" maxLength="8" placeholder="0000" value={segredo} onChange={e => setSegredo(e.target.value.replace(/\D/g,''))} style={{fontSize: '1.5rem', letterSpacing: '10px', textAlign: 'center'}} />
+          </div>
+        );
+      case 'frase':
+        return (
+           <div className="input-group">
+            <label>FRASE DE SEGURANÇA</label>
+            <textarea rows="3" placeholder="Ex: cavalo bateria correto" value={segredo} onChange={e => setSegredo(e.target.value)} style={{width: '100%', background: '#050505', border: '1px solid #333', color: '#00ff41', padding: '10px'}} />
+          </div>
+        );
+      case 'pattern':
+        return (
+          <div className="input-group" style={{alignItems: 'center'}}>
+            <label style={{marginBottom: '15px'}}>PADRÃO DE DESBLOQUEIO</label>
+            <PatternLock onComplete={(padrao) => handleLogin(padrao)} />
+          </div>
+        );
+      default: return null;
+    }
+  };
+
   return (
     <div className="login-wrapper">
-      <div className="login-box" style={{textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
+      <div className="login-box" style={{maxWidth: '500px'}}>
+        <div style={{marginBottom: '20px'}}>
+          <Logo size={60} />
+          <h1 style={{fontSize: '1.5rem', marginTop: '10px'}}>NEXUS ACCESS</h1>
+          <p style={{letterSpacing: '2px'}}>SELECIONE O MÉTODO DE AUTENTICAÇÃO</p>
+        </div>
+
+        <div className="auth-tabs">
+          <button className={metodo === 'cpf' ? 'active' : ''} onClick={() => setMetodo('cpf')} title="Senha Padrão"><User size={20}/></button>
+          <button className={metodo === 'pin' ? 'active' : ''} onClick={() => setMetodo('pin')} title="PIN Numérico"><Hash size={20}/></button>
+          <button className={metodo === 'frase' ? 'active' : ''} onClick={() => setMetodo('frase')} title="Frase Secreta"><Type size={20}/></button>
+          <button className={metodo === 'pattern' ? 'active' : ''} onClick={() => setMetodo('pattern')} title="Padrão"><Grid size={20}/></button>
+        </div>
+
+        <div className="input-group">
+          <label>IDENTIFICAÇÃO (CPF)</label>
+          <input type="text" placeholder="000.000.000-00" value={identificacao} onChange={handleCpfChange} maxLength={14} style={{fontWeight: 'bold'}} />
+        </div>
+
+        {renderInputSegredo()}
+
+        {metodo !== 'pattern' && (
+          <button className="btn-action" style={{marginTop: '20px'}} onClick={() => handleLogin()}>[ AUTENTICAR ]</button>
+        )}
+
+        <p style={{marginTop: '20px', color: status.includes('❌') || status.includes('⛔') ? '#ff3333' : '#00ff41', minHeight: '20px'}}>{status}</p>
         
-        <div style={{marginBottom: '30px'}}>
-          <h1 className="glitch" style={{margin: 0, fontSize: '3rem', color: 'white', letterSpacing: '2px'}}>NEXUS</h1>
-          <p style={{color: '#00ff41', letterSpacing: '4px', fontSize: '0.8rem', marginTop: '5px'}}>SYSTEM ACCESS</p>
-        </div>
-
-        <div style={{width: '100%', maxWidth: '300px'}}>
-          <label style={{color: '#888', fontSize: '0.8rem', display: 'block', marginBottom: '5px'}}>IDENTIFICAÇÃO</label>
-          <input 
-            type="text" 
-            placeholder="CODINOME" 
-            value={username} 
-            onChange={e => setUsername(e.target.value)}
-            style={{textAlign: 'center', fontSize: '1.1rem'}} 
-          />
-        </div>
-
-        <div style={{width: '100%', maxWidth: '300px', marginTop: '15px'}}>
-          <label style={{color: '#888', fontSize: '0.8rem', display: 'block', marginBottom: '5px'}}>CHAVE DE ACESSO</label>
-          <input 
-            type="password" 
-            placeholder="••••••" 
-            value={senha} 
-            onChange={e => setSenha(e.target.value)}
-            style={{textAlign: 'center', letterSpacing: '3px', fontSize: '1.1rem'}} 
-          />
-        </div>
-
-        <button 
-          className="btn-action" 
-          style={{width: '100%', maxWidth: '300px', marginTop: '25px', borderRadius: '4px'}} 
-          onClick={handleLogin}
-        >
-          [ INICIAR SESSÃO ]
-        </button>
-
-        <p style={{marginTop: '20px', color: status.includes('❌') ? '#ff4444' : '#00ff41', height: '20px', fontSize: '0.9rem'}}>
-          {status}
-        </p>
-        
-        <div style={{marginTop: '30px', borderTop: '1px solid #333', paddingTop: '20px', width: '100%'}}>
-          <a href="/cadastro" style={{color: '#666', textDecoration: 'none', fontSize: '0.8rem', textTransform: 'uppercase'}}>
-            Solicitar Nova Credencial
-          </a>
+        <div style={{marginTop: '20px', borderTop: '1px solid #333', paddingTop: '15px'}}>
+          <button onClick={irParaCadastro} className="link-back" style={{background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', color: '#666', textDecoration: 'underline'}}>
+            SOLICITAR CREDENCIAL (MODO {metodo.toUpperCase()})
+          </button>
         </div>
       </div>
     </div>
