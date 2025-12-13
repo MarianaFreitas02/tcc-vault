@@ -6,13 +6,12 @@ import Logo from '../components/Logo';
 import '../App.css';
 import { 
   Lock, FileText, Folder, HardDrive, 
-  Plus, LogOut, Terminal 
+  Plus, Terminal, Trash2 // <--- Adicionei Trash2 aqui
 } from 'lucide-react';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
-  // O usuário aqui pode vir como "123456_pin". Vamos limpar isso na interface.
   const { chaveMestra, usuario } = location.state || {};
 
   const [listaItens, setListaItens] = useState([]);
@@ -25,7 +24,6 @@ export default function Dashboard() {
   const [conteudoTexto, setConteudoTexto] = useState("");
   const [arquivo, setArquivo] = useState(null);
 
-  // URL DA VERCEL
   const API_URL = "https://tcc-vault.vercel.app"; 
 
   useEffect(() => {
@@ -39,6 +37,32 @@ export default function Dashboard() {
       const dados = await res.json();
       setListaItens(dados);
     } catch (e) { console.error("Erro Conexão Tática"); }
+  }
+
+  // --- NOVA FUNÇÃO DE EXCLUIR ---
+  async function handleExcluir(e, id) {
+    e.stopPropagation(); // Impede que o cartão abra ao clicar na lixeira
+    
+    // Confirmação de segurança estilo terminal
+    const confirmar = window.confirm("⚠️ ATENÇÃO AGENTE:\n\nTem certeza que deseja DELETAR PERMANENTEMENTE este registro?\nEssa ação não pode ser desfeita.");
+    
+    if (!confirmar) return;
+
+    try {
+        const res = await fetch(`${API_URL}/api/arquivo/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (res.ok) {
+            // Atualiza a lista removendo o item visualmente (mais rápido)
+            setListaItens(listaItens.filter(item => item._id !== id));
+        } else {
+            alert("❌ Erro ao excluir arquivo.");
+        }
+    } catch (error) {
+        console.error(error);
+        alert("Erro de conexão.");
+    }
   }
 
   const itensVisiveis = listaItens.filter(item => {
@@ -96,7 +120,6 @@ export default function Dashboard() {
     }
   }
 
-  // Limpa o sufixo para mostrar o CPF limpo na tela (ex: remove _pin)
   const cpfVisual = usuario ? usuario.split('_')[0].replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4") : "UNKNOWN";
 
   return (
@@ -127,12 +150,26 @@ export default function Dashboard() {
           <div className="path-display">/HOME/USER/{cpfVisual}/VAULT/</div>
           <button className="btn-add" onClick={() => setModalNovo(true)}><Plus size={16} /> NOVA ENTRADA</button>
         </header>
+
         <div className="data-grid">
           {itensVisiveis.map(item => (
             <div key={item._id} className="data-card" onClick={() => abrirItem(item._id)}>
               <div className="card-header">
                 <span className="file-id">ID: {item._id.slice(-6).toUpperCase()}</span>
-                {item.tipoArquivo === 'secret/text' ? <Lock size={14} /> : <FileText size={14} />}
+                
+                {/* --- BOTÃO DE DELETE --- */}
+                <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+                   <button 
+                      onClick={(e) => handleExcluir(e, item._id)} 
+                      className="btn-delete-card"
+                      title="Excluir Registro"
+                      style={{background: 'none', border: 'none', cursor: 'pointer', color: '#ff3333', padding: '0'}}
+                   >
+                      <Trash2 size={16} />
+                   </button>
+                   {item.tipoArquivo === 'secret/text' ? <Lock size={14} /> : <FileText size={14} />}
+                </div>
+
               </div>
               <div className="card-body"><h3>{item.nomeOriginal}</h3></div>
               <div className="card-footer"><span>{new Date(item.dataUpload).toLocaleDateString()}</span><span className="security-tag">AES-256</span></div>
