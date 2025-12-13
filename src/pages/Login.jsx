@@ -76,7 +76,7 @@ export default function Login() {
   const [segredo, setSegredo] = useState("");
   const [status, setStatus] = useState("");
   
-  // ESTADOS NOVOS
+  // ESTADOS
   const [isLoading, setIsLoading] = useState(false);
   const [dadosLoginSucesso, setDadosLoginSucesso] = useState(null); 
   const [mostrarSenha, setMostrarSenha] = useState(false); // Controle do olho
@@ -155,26 +155,24 @@ export default function Login() {
   };
 
   const renderInputSegredo = () => {
+    // Estilo comum para o botão de olho
+    const olhoStyle = {
+      position: 'absolute', right: '10px', top: '38px', 
+      background: 'none', border: 'none', color: '#666', cursor: 'pointer', zIndex: 10
+    };
+
     switch (metodo) {
       case 'cpf':
         return (
           <div className="input-group" style={{position: 'relative'}}>
             <label>SENHA DE ACESSO</label>
             <input 
-              type={mostrarSenha ? "text" : "password"} // Alterna tipo
+              type={mostrarSenha ? "text" : "password"} 
               placeholder="••••••••" 
               value={segredo} 
               onChange={e => setSegredo(e.target.value)} 
             />
-            {/* Ícone de Olho */}
-            <button 
-              type="button"
-              onClick={() => setMostrarSenha(!mostrarSenha)}
-              style={{
-                position: 'absolute', right: '10px', top: '38px', 
-                background: 'none', border: 'none', color: '#666', cursor: 'pointer'
-              }}
-            >
+            <button type="button" onClick={() => setMostrarSenha(!mostrarSenha)} style={olhoStyle}>
               {mostrarSenha ? <EyeOff size={16}/> : <Eye size={16}/>}
             </button>
           </div>
@@ -184,23 +182,14 @@ export default function Login() {
           <div className="input-group" style={{position: 'relative'}}>
             <label>PIN DE SEGURANÇA</label>
             <input 
-              type={mostrarSenha ? "tel" : "password"} // PIN também esconde
+              type={mostrarSenha ? "tel" : "password"} 
               maxLength="8" 
               placeholder="0000" 
               value={segredo} 
               onChange={e => setSegredo(e.target.value.replace(/\D/g,''))} 
-              style={{
-                fontSize: '1.5rem', letterSpacing: '10px', textAlign: 'center'
-              }} 
+              style={{ fontSize: '1.5rem', letterSpacing: '10px', textAlign: 'center' }} 
             />
-            <button 
-              type="button"
-              onClick={() => setMostrarSenha(!mostrarSenha)}
-              style={{
-                position: 'absolute', right: '10px', top: '38px', 
-                background: 'none', border: 'none', color: '#666', cursor: 'pointer'
-              }}
-            >
+            <button type="button" onClick={() => setMostrarSenha(!mostrarSenha)} style={olhoStyle}>
               {mostrarSenha ? <EyeOff size={16}/> : <Eye size={16}/>}
             </button>
           </div>
@@ -209,21 +198,20 @@ export default function Login() {
         return (
           <div className="input-group" style={{position: 'relative'}}>
             <label>FRASE DE SEGURANÇA</label>
-            {/* Frase usamos input normal se quiser esconder, ou textarea se quiser ver. 
-                Geralmente frase se vê, mas vou deixar opção de esconder se preferir. */}
-            <textarea 
-              rows="3" 
+            {/* Agora usando INPUT em vez de textarea para permitir type="password" */}
+            <input 
+              type={mostrarSenha ? "text" : "password"} 
               placeholder="Ex: cavalo bateria correto" 
               value={segredo} 
               onChange={e => setSegredo(e.target.value)} 
-              style={{
-                width: '100%', background: '#050505', border: '1px solid #333', 
-                color: '#00ff41', padding: '10px', 
-                // Se quiser esconder a frase (opcional, meio estranho em textarea mas funciona com blur)
-                //filter: mostrarSenha ? 'none' : 'blur(4px)' 
-              }} 
+              style={{ paddingRight: '40px' }} // Espaço para não ficar em cima do olho
             />
-             {/* Frase geralmente não precisa de 'password type', mas se quiser me avise */}
+            <button type="button" onClick={() => setMostrarSenha(!mostrarSenha)} style={olhoStyle}>
+              {mostrarSenha ? <EyeOff size={16}/> : <Eye size={16}/>}
+            </button>
+            <p style={{fontSize: '0.7rem', color: '#666', marginTop: '5px'}}>
+              {mostrarSenha ? "Frase visível" : "Frase oculta"}
+            </p>
           </div>
         );
       case 'pattern':
