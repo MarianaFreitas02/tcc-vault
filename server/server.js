@@ -101,14 +101,16 @@ app.get('/api/arquivo/:id', async (req, res) => {
     } catch (erro) { res.status(500).json({ erro: "Erro baixar." }); }
 });
 
+// ... todo o código anterior ...
+
 const PORT = process.env.PORT || 3000;
 
-// A Vercel precisa exportar o app
+// Configuração especial para Vercel
 if (process.env.VERCEL) {
     module.exports = app;
 } else {
-    // Para rodar localmente no seu PC
+    // Configuração para rodar no seu PC (localhost)
     app.listen(PORT, () => {
-        console.log(`Rodando na porta ${PORT} 🚀`);
+        console.log(`Servidor rodando na porta ${PORT} 🚀`);
     });
 }
