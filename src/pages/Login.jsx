@@ -7,12 +7,13 @@ import '../App.css';
 import { Lock, Hash, Type, Grid, User } from 'lucide-react';
 
 export default function Login() {
-  const [metodo, setMetodo] = useState('cpf'); // 'cpf', 'pin', 'frase', 'pattern'
+  const [metodo, setMetodo] = useState('cpf'); 
   const [identificacao, setIdentificacao] = useState("");
   const [segredo, setSegredo] = useState("");
   const [status, setStatus] = useState("");
   const navigate = useNavigate();
 
+  // URL ATUALIZADA PARA VERCEL
   const API_URL = "https://tcc-vault.vercel.app"; 
 
   const handleCpfChange = (e) => {
@@ -31,74 +32,62 @@ export default function Login() {
     setStatus("⏳ PROCESSANDO ACESSO...");
 
     try {
-      const cpfLimpo = identificacao.replace(/\D/g, "");
-      const respSalt = await fetch(`${API_URL}/api/auth/salt/${cpfLimpo}`);
+      const cpfReal = identificacao.replace(/\D/g, "");
       
-      if (!respSalt.ok) return setStatus("❌ Agente não encontrado.");
+      // Lógica de Sufixos: Busca o usuário correto baseado na aba aberta
+      let usernameComSufixo = cpfReal;
+      if (metodo === 'pin') usernameComSufixo += "_pin";
+      if (metodo === 'frase') usernameComSufixo += "_frase";
+      if (metodo === 'pattern') usernameComSufixo += "_pattern";
+
+      // 1. Busca o SALT
+      const respSalt = await fetch(`${API_URL}/api/auth/salt/${usernameComSufixo}`);
+      
+      if (!respSalt.ok) {
+        return setStatus(`❌ Método ${metodo.toUpperCase()} não cadastrado para este CPF.`);
+      }
       
       const { salt } = await respSalt.json();
       const { key } = await derivarChaveMestra(segredoFinal, salt);
       const authHash = await gerarHashDeAutenticacao(key);
 
+      // 2. Autentica
       const resposta = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: cpfLimpo, authHash })
+        body: JSON.stringify({ username: usernameComSufixo, authHash })
       });
 
       if (resposta.ok) {
+        // Envia o CPF limpo para o dashboard (para não mostrar os sufixos _pin na tela)
         navigate('/dashboard', { state: { chaveMestra: key, usuario: identificacao } });
       } else {
         setStatus("⛔ NEGADO: Credenciais Inválidas.");
       }
     } catch (error) {
       console.error(error);
-      setStatus("Erro de Conexão.");
+      setStatus("Erro de Conexão (Verifique a URL).");
     }
   }
 
-  // --- LÓGICA DE ENVIO PARA CADASTRO ---
   const irParaCadastro = () => {
-    let metodoDestino = 'senha'; // Padrão se for CPF
-    
+    let metodoDestino = 'senha';
     if (metodo === 'pin') metodoDestino = 'pin';
     if (metodo === 'frase') metodoDestino = 'frase';
     if (metodo === 'pattern') metodoDestino = 'pattern';
-
-    // Vai para cadastro levando a escolha na mochila (state)
     navigate('/cadastro', { state: { metodoInicial: metodoDestino } });
   };
 
   const renderInputSegredo = () => {
     switch (metodo) {
       case 'cpf':
-        return (
-          <div className="input-group">
-            <label>SENHA DE ACESSO</label>
-            <input type="password" placeholder="••••••••" value={segredo} onChange={e => setSegredo(e.target.value)} />
-          </div>
-        );
+        return <div className="input-group"><label>SENHA DE ACESSO</label><input type="password" placeholder="••••••••" value={segredo} onChange={e => setSegredo(e.target.value)} /></div>;
       case 'pin':
-        return (
-          <div className="input-group">
-            <label>PIN DE SEGURANÇA</label>
-            <input type="tel" maxLength="8" placeholder="0000" value={segredo} onChange={e => setSegredo(e.target.value.replace(/\D/g,''))} style={{fontSize: '1.5rem', letterSpacing: '10px', textAlign: 'center'}} />
-          </div>
-        );
+        return <div className="input-group"><label>PIN DE SEGURANÇA</label><input type="tel" maxLength="8" placeholder="0000" value={segredo} onChange={e => setSegredo(e.target.value.replace(/\D/g,''))} style={{fontSize: '1.5rem', letterSpacing: '10px', textAlign: 'center'}} /></div>;
       case 'frase':
-        return (
-           <div className="input-group">
-            <label>FRASE DE SEGURANÇA</label>
-            <textarea rows="3" placeholder="Ex: cavalo bateria correto" value={segredo} onChange={e => setSegredo(e.target.value)} style={{width: '100%', background: '#050505', border: '1px solid #333', color: '#00ff41', padding: '10px'}} />
-          </div>
-        );
+        return <div className="input-group"><label>FRASE DE SEGURANÇA</label><textarea rows="3" placeholder="Ex: cavalo bateria correto" value={segredo} onChange={e => setSegredo(e.target.value)} style={{width: '100%', background: '#050505', border: '1px solid #333', color: '#00ff41', padding: '10px'}} /></div>;
       case 'pattern':
-        return (
-          <div className="input-group" style={{alignItems: 'center'}}>
-            <label style={{marginBottom: '15px'}}>PADRÃO DE DESBLOQUEIO</label>
-            <PatternLock onComplete={(padrao) => handleLogin(padrao)} />
-          </div>
-        );
+        return <div className="input-group" style={{alignItems: 'center'}}><label style={{marginBottom: '15px'}}>PADRÃO DE DESBLOQUEIO</label><PatternLock onComplete={(padrao) => handleLogin(padrao)} /></div>;
       default: return null;
     }
   };
@@ -130,7 +119,7 @@ export default function Login() {
           <button className="btn-action" style={{marginTop: '20px'}} onClick={() => handleLogin()}>[ AUTENTICAR ]</button>
         )}
 
-        <p style={{marginTop: '20px', color: status.includes('❌') || status.includes('⛔') ? '#ff3333' : '#00ff41', minHeight: '20px'}}>{status}</p>
+        <p style={{marginTop: '20px', color: status.includes('❌') || status.includes('⛔') ? '#ff3333' : '#00ff41', minHeight: '20px', fontSize: '0.8rem'}}>{status}</p>
         
         <div style={{marginTop: '20px', borderTop: '1px solid #333', paddingTop: '15px'}}>
           <button onClick={irParaCadastro} className="link-back" style={{background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', color: '#666', textDecoration: 'underline'}}>

@@ -10,9 +10,7 @@ export default function Cadastro() {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // LÊ O ESTADO QUE VEIO DO LOGIN
   const [metodo, setMetodo] = useState(location.state?.metodoInicial || "senha");
-  
   const [cpf, setCpf] = useState("");
   const [status, setStatus] = useState("");
 
@@ -24,6 +22,7 @@ export default function Cadastro() {
   const [padrao, setPadrao] = useState("");
   const [mostrarSenha, setMostrarSenha] = useState(false);
 
+  // URL ATUALIZADA PARA VERCEL
   const API_URL = "https://tcc-vault.vercel.app"; 
 
   const handleCpfChange = (e) => {
@@ -37,6 +36,7 @@ export default function Cadastro() {
 
   async function handleCadastro() {
     let segredoFinal = "";
+    let sufixo = ""; // Para diferenciar usuários no banco
 
     if (!cpf || cpf.length < 14) return setStatus("⚠️ CPF inválido.");
 
@@ -44,19 +44,23 @@ export default function Cadastro() {
       if (senha !== confirmarSenha) return setStatus("⚠️ Senhas não conferem.");
       if (senha.length < 8) return setStatus("⚠️ Mínimo 8 caracteres.");
       segredoFinal = senha;
+      sufixo = ""; // Senha padrão não tem sufixo
     } 
     else if (metodo === 'pin') {
       if (pin !== confirmarPin) return setStatus("⚠️ PINs não conferem.");
       if (pin.length < 4) return setStatus("⚠️ Mínimo 4 números.");
       segredoFinal = pin;
+      sufixo = "_pin";
     } 
     else if (metodo === 'frase') {
       if (!frase || frase.split(' ').length < 2) return setStatus("⚠️ Mínimo 2 palavras.");
       segredoFinal = frase;
+      sufixo = "_frase";
     }
     else if (metodo === 'pattern') {
       if (padrao.length < 7) return setStatus("⚠️ Padrão muito curto.");
       segredoFinal = padrao;
+      sufixo = "_pattern";
     }
 
     setStatus("⏳ CRIPTOGRAFANDO...");
@@ -67,13 +71,19 @@ export default function Cadastro() {
       
       const { key } = await derivarChaveMestra(segredoFinal, saltHex);
       const authHash = await gerarHashDeAutenticacao(key);
-      const cpfLimpo = cpf.replace(/\D/g, "");
+      
+      // Prepara o username para o banco (CPF + Sufixo)
+      const cpfReal = cpf.replace(/\D/g, "");
+      const usernameComSufixo = cpfReal + sufixo;
 
-      // ROTA CORRIGIDA: /register
       const resposta = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: cpfLimpo, authHash, salt: saltHex })
+        body: JSON.stringify({ 
+          username: usernameComSufixo, 
+          authHash, 
+          salt: saltHex 
+        })
       });
 
       if (resposta.ok) {
@@ -82,7 +92,7 @@ export default function Cadastro() {
       } else {
         const erro = await resposta.json();
         if (erro.erro && erro.erro.includes('já existe')) {
-          setStatus("⛔ ERRO: CPF JÁ CADASTRADO.");
+          setStatus(`⛔ ESTE CPF JÁ TEM UM ${metodo.toUpperCase()} CADASTRADO.`);
         } else {
           setStatus(`⛔ ${erro.erro || 'Falha no registro'}`);
         }
