@@ -33,7 +33,6 @@ async function connectToDatabase() {
 }
 
 // --- MODELOS ---
-// Usa models existentes ou cria novos (evita erro de recompile)
 const Usuario = mongoose.models.Usuario || mongoose.model('Usuario', new mongoose.Schema({
     username: { type: String, unique: true, required: true },
     salt: String,
@@ -50,63 +49,48 @@ const Arquivo = mongoose.models.Arquivo || mongoose.model('Arquivo', new mongoos
     dataUpload: { type: Date, default: Date.now }
 }));
 
-// --- ROTA DE TESTE ---
-app.get('/api/debug', (req, res) => res.json({ status: "Online" }));
+// --- ROTA DE DEBUG ---
+app.get('/api/debug', (req, res) => res.json({ status: "Online", routes: "Auth + Arquivos" }));
 
-// --- ROTA DE REGISTRO ---
+// ==========================================
+// 🔐 ROTAS DE AUTENTICAÇÃO
+// ==========================================
+
+// REGISTRO
 app.post('/api/auth/register', async (req, res) => {
     try {
-        console.log("📝 Tentativa de Registro:", req.body.username); // Log para debug
-        
         await connectToDatabase();
-
         const { username, salt, authHash } = req.body;
 
-        // Validação
-        if (!username || !authHash) {
-            return res.status(400).json({ erro: "Dados inválidos: Username ou Hash faltando" });
-        }
+        if (!username || !authHash) return res.status(400).json({ erro: "Dados inválidos" });
 
-        // Verifica duplicidade
         const existe = await Usuario.findOne({ username });
-        if (existe) {
-            console.log("⚠️ Usuário já existe:", username);
-            return res.status(400).json({ erro: "Usuário/Método já cadastrado para este CPF!" });
-        }
+        if (existe) return res.status(400).json({ erro: "Usuário já existe!" });
 
-        // Cria
         const novo = new Usuario({ username, salt, authHash });
         await novo.save();
         
-        console.log("✅ Sucesso:", username);
         res.status(200).json({ mensagem: "Criado com sucesso!" });
-
     } catch (erro) {
-        console.error("🔥 ERRO NO REGISTRO:", erro);
-        // Retorna JSON mesmo no erro (evita o erro 'Unexpected token A')
-        res.status(500).json({ 
-            erro: "Erro interno do servidor", 
-            detalhe: erro.message 
-        });
+        console.error("Erro Register:", erro);
+        res.status(500).json({ erro: "Erro interno", detalhe: erro.message });
     }
 });
 
-// --- ROTA DE SALT ---
+// BUSCAR SALT
 app.get('/api/auth/salt/:username', async (req, res) => {
     try {
         await connectToDatabase();
         const usuario = await Usuario.findOne({ username: req.params.username });
         
-        if (!usuario) {
-            return res.status(404).json({ erro: "Método não encontrado para este usuário" });
-        }
+        if (!usuario) return res.status(404).json({ erro: "Usuário não encontrado" });
         res.json({ salt: usuario.salt });
     } catch (erro) {
         res.status(500).json({ erro: erro.message });
     }
 });
 
-// --- ROTA DE LOGIN ---
+// LOGIN
 app.post('/api/auth/login', async (req, res) => {
     try {
         await connectToDatabase();
@@ -122,5 +106,47 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-// Export padrão para Vercel
+// ==========================================
+// 📂 ROTAS DE ARQUIVOS (O QUE ESTAVA FALTANDO)
+// ==========================================
+
+// SALVAR ARQUIVO
+app.post('/api/salvar', async (req, res) => {
+    try {
+        await connectToDatabase();
+        // Cria e salva o arquivo no banco
+        const novoArquivo = new Arquivo(req.body);
+        await novoArquivo.save();
+        res.json({ mensagem: "Arquivo criptografado e salvo com sucesso!" });
+    } catch (erro) {
+        console.error("Erro ao salvar:", erro);
+        res.status(500).json({ erro: "Falha ao salvar arquivo." });
+    }
+});
+
+// LISTAR ARQUIVOS (DASHBOARD)
+app.get('/api/meus-arquivos/:username', async (req, res) => {
+    try {
+        await connectToDatabase();
+        // Busca arquivos do usuário, mas NÃO traz o conteúdo pesado (base64) para listar rápido
+        const arquivos = await Arquivo.find({ dono: req.params.username }).select('-conteudo');
+        res.json(arquivos);
+    } catch (erro) {
+        res.status(500).json({ erro: "Erro ao listar arquivos." });
+    }
+});
+
+// BAIXAR/ABRIR UM ARQUIVO
+app.get('/api/arquivo/:id', async (req, res) => {
+    try {
+        await connectToDatabase();
+        const arquivo = await Arquivo.findById(req.params.id);
+        if (!arquivo) return res.status(404).json({ erro: "Arquivo não encontrado" });
+        res.json(arquivo);
+    } catch (erro) {
+        res.status(500).json({ erro: "Erro ao baixar arquivo." });
+    }
+});
+
+// Export padrão
 export default app;
