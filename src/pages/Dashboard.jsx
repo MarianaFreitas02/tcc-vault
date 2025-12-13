@@ -12,6 +12,7 @@ import {
 export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
+  // O usuário aqui pode vir como "123456_pin". Vamos limpar isso na interface.
   const { chaveMestra, usuario } = location.state || {};
 
   const [listaItens, setListaItens] = useState([]);
@@ -24,7 +25,7 @@ export default function Dashboard() {
   const [conteudoTexto, setConteudoTexto] = useState("");
   const [arquivo, setArquivo] = useState(null);
 
-  // URL ATUALIZADA PARA VERCEL
+  // URL DA VERCEL
   const API_URL = "https://tcc-vault.vercel.app"; 
 
   useEffect(() => {
@@ -34,8 +35,6 @@ export default function Dashboard() {
 
   async function carregarDados() {
     try {
-      // O usuário pode ter sufixo (_pin), limpamos para exibir na tela se quiser
-      // Mas o banco usa o username exato
       const res = await fetch(`${API_URL}/api/meus-arquivos/${usuario}`);
       const dados = await res.json();
       setListaItens(dados);
@@ -97,6 +96,9 @@ export default function Dashboard() {
     }
   }
 
+  // Limpa o sufixo para mostrar o CPF limpo na tela (ex: remove _pin)
+  const cpfVisual = usuario ? usuario.split('_')[0].replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4") : "UNKNOWN";
+
   return (
     <div className="tactical-layout">
       <aside className="tactical-sidebar">
@@ -115,14 +117,14 @@ export default function Dashboard() {
         </div>
         <div className="system-info">
           <p>STATUS: <span className="status-ok">ONLINE</span></p>
-          <p>AGENTE: {usuario?.replace(/_.*$/, '')}</p>
+          <p>AGENTE: {cpfVisual}</p>
           <button onClick={() => navigate('/login')} className="btn-logout">[ DESCONECTAR ]</button>
         </div>
       </aside>
 
       <main className="tactical-main">
         <header className="main-header">
-          <div className="path-display">/HOME/USER/{usuario?.replace(/_.*$/, '')}/VAULT/</div>
+          <div className="path-display">/HOME/USER/{cpfVisual}/VAULT/</div>
           <button className="btn-add" onClick={() => setModalNovo(true)}><Plus size={16} /> NOVA ENTRADA</button>
         </header>
         <div className="data-grid">
@@ -141,7 +143,6 @@ export default function Dashboard() {
       </main>
       <AIChatBox />
       
-      {/* MODAIS (CÓDIGO IGUAL AO ANTERIOR, SÓ IMPORTANTE AQUI PELA URL) */}
       {modalNovo && (
         <div className="modal-screen">
           <div className="modal-window">

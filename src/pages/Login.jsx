@@ -13,7 +13,7 @@ export default function Login() {
   const [status, setStatus] = useState("");
   const navigate = useNavigate();
 
-  // URL ATUALIZADA PARA VERCEL
+  // URL DA VERCEL
   const API_URL = "https://tcc-vault.vercel.app"; 
 
   const handleCpfChange = (e) => {
@@ -35,12 +35,13 @@ export default function Login() {
       const cpfReal = identificacao.replace(/\D/g, "");
       
       // Lógica de Sufixos: Busca o usuário correto baseado na aba aberta
+      // Isso engana o banco para achar o registro certo
       let usernameComSufixo = cpfReal;
       if (metodo === 'pin') usernameComSufixo += "_pin";
       if (metodo === 'frase') usernameComSufixo += "_frase";
       if (metodo === 'pattern') usernameComSufixo += "_pattern";
 
-      // 1. Busca o SALT
+      // 1. Busca o SALT para esse método específico
       const respSalt = await fetch(`${API_URL}/api/auth/salt/${usernameComSufixo}`);
       
       if (!respSalt.ok) {
@@ -59,14 +60,14 @@ export default function Login() {
       });
 
       if (resposta.ok) {
-        // Envia o CPF limpo para o dashboard (para não mostrar os sufixos _pin na tela)
-        navigate('/dashboard', { state: { chaveMestra: key, usuario: identificacao } });
+        // Envia o CPF limpo (identificacao) para o dashboard, mas a chave mestra correta
+        navigate('/dashboard', { state: { chaveMestra: key, usuario: usernameComSufixo } });
       } else {
         setStatus("⛔ NEGADO: Credenciais Inválidas.");
       }
     } catch (error) {
       console.error(error);
-      setStatus("Erro de Conexão (Verifique a URL).");
+      setStatus("Erro de Conexão (Verifique se o backend está online).");
     }
   }
 

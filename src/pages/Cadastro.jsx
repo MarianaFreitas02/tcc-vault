@@ -22,7 +22,7 @@ export default function Cadastro() {
   const [padrao, setPadrao] = useState("");
   const [mostrarSenha, setMostrarSenha] = useState(false);
 
-  // URL ATUALIZADA PARA VERCEL
+  // URL DA VERCEL
   const API_URL = "https://tcc-vault.vercel.app"; 
 
   const handleCpfChange = (e) => {
@@ -36,7 +36,7 @@ export default function Cadastro() {
 
   async function handleCadastro() {
     let segredoFinal = "";
-    let sufixo = ""; // Para diferenciar usuários no banco
+    let sufixo = ""; 
 
     if (!cpf || cpf.length < 14) return setStatus("⚠️ CPF inválido.");
 
@@ -44,7 +44,7 @@ export default function Cadastro() {
       if (senha !== confirmarSenha) return setStatus("⚠️ Senhas não conferem.");
       if (senha.length < 8) return setStatus("⚠️ Mínimo 8 caracteres.");
       segredoFinal = senha;
-      sufixo = ""; // Senha padrão não tem sufixo
+      sufixo = ""; // Senha normal = sem sufixo
     } 
     else if (metodo === 'pin') {
       if (pin !== confirmarPin) return setStatus("⚠️ PINs não conferem.");
@@ -72,7 +72,7 @@ export default function Cadastro() {
       const { key } = await derivarChaveMestra(segredoFinal, saltHex);
       const authHash = await gerarHashDeAutenticacao(key);
       
-      // Prepara o username para o banco (CPF + Sufixo)
+      // Cria o username único para o banco (CPF + Sufixo)
       const cpfReal = cpf.replace(/\D/g, "");
       const usernameComSufixo = cpfReal + sufixo;
 
@@ -92,7 +92,7 @@ export default function Cadastro() {
       } else {
         const erro = await resposta.json();
         if (erro.erro && erro.erro.includes('já existe')) {
-          setStatus(`⛔ ESTE CPF JÁ TEM UM ${metodo.toUpperCase()} CADASTRADO.`);
+          setStatus(`⛔ CPF JÁ TEM CADASTRO DE ${metodo.toUpperCase()}.`);
         } else {
           setStatus(`⛔ ${erro.erro || 'Falha no registro'}`);
         }
