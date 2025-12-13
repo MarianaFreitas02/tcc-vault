@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { derivarChaveMestra, gerarHashDeAutenticacao } from '../crypto';
 import Logo from '../components/Logo';
@@ -12,7 +12,7 @@ export default function Cadastro() {
   
   const [metodo, setMetodo] = useState(location.state?.metodoInicial || "senha");
   const [cpf, setCpf] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(""); // Mensagem de erro/sucesso
 
   const [senha, setSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
@@ -22,8 +22,13 @@ export default function Cadastro() {
   const [padrao, setPadrao] = useState("");
   const [mostrarSenha, setMostrarSenha] = useState(false);
 
-  // URL DA VERCEL
   const API_URL = "https://tcc-vault.vercel.app"; 
+
+  // Função para trocar de aba e LIMPAR OS ERROS (Fix visual)
+  const trocarMetodo = (novoMetodo) => {
+    setMetodo(novoMetodo);
+    setStatus(""); // Limpa mensagem antiga
+  };
 
   const handleCpfChange = (e) => {
     let v = e.target.value.replace(/\D/g, "");
@@ -44,7 +49,7 @@ export default function Cadastro() {
       if (senha !== confirmarSenha) return setStatus("⚠️ Senhas não conferem.");
       if (senha.length < 8) return setStatus("⚠️ Mínimo 8 caracteres.");
       segredoFinal = senha;
-      sufixo = ""; // Senha normal = sem sufixo
+      sufixo = ""; 
     } 
     else if (metodo === 'pin') {
       if (pin !== confirmarPin) return setStatus("⚠️ PINs não conferem.");
@@ -58,7 +63,8 @@ export default function Cadastro() {
       sufixo = "_frase";
     }
     else if (metodo === 'pattern') {
-      if (padrao.length < 7) return setStatus("⚠️ Padrão muito curto.");
+      // "1-2-3" tem 5 caracteres. Se for menor que isso, é muito curto.
+      if (!padrao || padrao.length < 5) return setStatus("⚠️ Padrão muito curto (ligue + pontos).");
       segredoFinal = padrao;
       sufixo = "_pattern";
     }
@@ -72,9 +78,10 @@ export default function Cadastro() {
       const { key } = await derivarChaveMestra(segredoFinal, saltHex);
       const authHash = await gerarHashDeAutenticacao(key);
       
-      // Cria o username único para o banco (CPF + Sufixo)
       const cpfReal = cpf.replace(/\D/g, "");
+      // DEBUG: Verifique no console se o username está correto
       const usernameComSufixo = cpfReal + sufixo;
+      console.log("Enviando cadastro:", usernameComSufixo);
 
       const resposta = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
@@ -86,20 +93,22 @@ export default function Cadastro() {
         })
       });
 
+      const dados = await resposta.json();
+
       if (resposta.ok) {
         setStatus("✅ SUCESSO! REDIRECIONANDO...");
         setTimeout(() => navigate('/login'), 1500);
       } else {
-        const erro = await resposta.json();
-        if (erro.erro && erro.erro.includes('já existe')) {
-          setStatus(`⛔ CPF JÁ TEM CADASTRO DE ${metodo.toUpperCase()}.`);
+        // Mostra o erro exato que veio do servidor
+        if (dados.erro && dados.erro.includes('já cadastrado')) {
+           setStatus(`⛔ CPF JÁ POSSUI ${metodo.toUpperCase()} CADASTRADO.`);
         } else {
-          setStatus(`⛔ ${erro.erro || 'Falha no registro'}`);
+           setStatus(`⛔ ERRO: ${dados.erro || 'Falha desconhecida'}`);
         }
       }
     } catch (error) {
       console.error(error);
-      setStatus("❌ Falha de Conexão.");
+      setStatus("❌ Falha de Conexão com o Servidor.");
     }
   }
 
@@ -115,10 +124,10 @@ export default function Cadastro() {
         </div>
 
         <div className="auth-tabs">
-          <button className={metodo === 'senha' ? 'active' : ''} onClick={() => setMetodo('senha')} title="Senha"><Lock size={18}/></button>
-          <button className={metodo === 'pin' ? 'active' : ''} onClick={() => setMetodo('pin')} title="PIN"><Hash size={18}/></button>
-          <button className={metodo === 'frase' ? 'active' : ''} onClick={() => setMetodo('frase')} title="Frase"><Type size={18}/></button>
-          <button className={metodo === 'pattern' ? 'active' : ''} onClick={() => setMetodo('pattern')} title="Padrão"><Grid size={18}/></button>
+          <button className={metodo === 'senha' ? 'active' : ''} onClick={() => trocarMetodo('senha')} title="Senha"><Lock size={18}/></button>
+          <button className={metodo === 'pin' ? 'active' : ''} onClick={() => trocarMetodo('pin')} title="PIN"><Hash size={18}/></button>
+          <button className={metodo === 'frase' ? 'active' : ''} onClick={() => trocarMetodo('frase')} title="Frase"><Type size={18}/></button>
+          <button className={metodo === 'pattern' ? 'active' : ''} onClick={() => trocarMetodo('pattern')} title="Padrão"><Grid size={18}/></button>
         </div>
 
         <div className="input-group">
@@ -159,7 +168,12 @@ export default function Cadastro() {
         )}
 
         <button className="btn-action" onClick={handleCadastro} style={{marginTop: '20px'}}>[ REGISTRAR ]</button>
-        <p style={{marginTop: '15px', color: status.includes('✅') ? '#00ff41' : (status.includes('⏳') ? '#ffff00' : '#ff3333'), minHeight: '20px', fontSize: '0.85rem'}}>{status}</p>
+        
+        {/* MENSAGEM DE STATUS */}
+        <p style={{marginTop: '15px', color: status.includes('✅') ? '#00ff41' : (status.includes('⏳') ? '#ffff00' : '#ff3333'), minHeight: '20px', fontSize: '0.85rem'}}>
+          {status}
+        </p>
+        
         <div style={{marginTop: '20px', borderTop: '1px solid #333', paddingTop: '15px'}}>
           <a href="/login" className="link-back">{'<'} VOLTAR</a>
         </div>

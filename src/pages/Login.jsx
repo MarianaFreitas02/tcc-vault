@@ -13,8 +13,14 @@ export default function Login() {
   const [status, setStatus] = useState("");
   const navigate = useNavigate();
 
-  // URL DA VERCEL
   const API_URL = "https://tcc-vault.vercel.app"; 
+
+  // Fix Visual: Limpa erro ao trocar de aba
+  const trocarMetodo = (m) => {
+    setMetodo(m);
+    setStatus("");
+    setSegredo("");
+  };
 
   const handleCpfChange = (e) => {
     let v = e.target.value.replace(/\D/g, "");
@@ -34,14 +40,11 @@ export default function Login() {
     try {
       const cpfReal = identificacao.replace(/\D/g, "");
       
-      // Lógica de Sufixos: Busca o usuário correto baseado na aba aberta
-      // Isso engana o banco para achar o registro certo
       let usernameComSufixo = cpfReal;
       if (metodo === 'pin') usernameComSufixo += "_pin";
       if (metodo === 'frase') usernameComSufixo += "_frase";
       if (metodo === 'pattern') usernameComSufixo += "_pattern";
 
-      // 1. Busca o SALT para esse método específico
       const respSalt = await fetch(`${API_URL}/api/auth/salt/${usernameComSufixo}`);
       
       if (!respSalt.ok) {
@@ -52,7 +55,6 @@ export default function Login() {
       const { key } = await derivarChaveMestra(segredoFinal, salt);
       const authHash = await gerarHashDeAutenticacao(key);
 
-      // 2. Autentica
       const resposta = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -60,14 +62,13 @@ export default function Login() {
       });
 
       if (resposta.ok) {
-        // Envia o CPF limpo (identificacao) para o dashboard, mas a chave mestra correta
-        navigate('/dashboard', { state: { chaveMestra: key, usuario: usernameComSufixo } });
+        navigate('/dashboard', { state: { chaveMestra: key, usuario: identificacao } });
       } else {
         setStatus("⛔ NEGADO: Credenciais Inválidas.");
       }
     } catch (error) {
       console.error(error);
-      setStatus("Erro de Conexão (Verifique se o backend está online).");
+      setStatus("Erro de Conexão.");
     }
   }
 
@@ -103,10 +104,10 @@ export default function Login() {
         </div>
 
         <div className="auth-tabs">
-          <button className={metodo === 'cpf' ? 'active' : ''} onClick={() => setMetodo('cpf')} title="Senha Padrão"><User size={20}/></button>
-          <button className={metodo === 'pin' ? 'active' : ''} onClick={() => setMetodo('pin')} title="PIN Numérico"><Hash size={20}/></button>
-          <button className={metodo === 'frase' ? 'active' : ''} onClick={() => setMetodo('frase')} title="Frase Secreta"><Type size={20}/></button>
-          <button className={metodo === 'pattern' ? 'active' : ''} onClick={() => setMetodo('pattern')} title="Padrão"><Grid size={20}/></button>
+          <button className={metodo === 'cpf' ? 'active' : ''} onClick={() => trocarMetodo('cpf')} title="Senha Padrão"><User size={20}/></button>
+          <button className={metodo === 'pin' ? 'active' : ''} onClick={() => trocarMetodo('pin')} title="PIN Numérico"><Hash size={20}/></button>
+          <button className={metodo === 'frase' ? 'active' : ''} onClick={() => trocarMetodo('frase')} title="Frase Secreta"><Type size={20}/></button>
+          <button className={metodo === 'pattern' ? 'active' : ''} onClick={() => trocarMetodo('pattern')} title="Padrão"><Grid size={20}/></button>
         </div>
 
         <div className="input-group">

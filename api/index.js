@@ -7,26 +7,33 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-// ⚠️ MANTENHA SUA STRING DE CONEXÃO AQUI
+// STRING DE CONEXÃO
 const URI_DO_BANCO = "mongodb+srv://admin:tcc123@cluster0.2qo05lt.mongodb.net/?appName=Cluster0";
 
-let isConnected = false;
+// --- CONEXÃO MONGO OTIMIZADA ---
+let cachedDb = null;
 
 async function connectToDatabase() {
-  if (isConnected) return;
-  
+  if (cachedDb && mongoose.connection.readyState === 1) {
+    return cachedDb;
+  }
+
   try {
-    const db = await mongoose.connect(URI_DO_BANCO);
-    isConnected = db.connections[0].readyState;
-    console.log("✅ Conectado ao MongoDB");
+    const db = await mongoose.connect(URI_DO_BANCO, {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
+    cachedDb = db;
+    console.log("✅ Nova conexão MongoDB estabelecida");
+    return db;
   } catch (error) {
-    console.error("❌ Erro ao conectar no Mongo:", error);
-    throw error;
+    console.error("❌ ERRO FATAL DE CONEXÃO:", error);
+    throw new Error("Banco de dados indisponível: " + error.message);
   }
 }
 
 // --- MODELOS ---
-// Verifica se o modelo já existe para evitar erro de recompile na Vercel
+// Usa models existentes ou cria novos (evita erro de recompile)
 const Usuario = mongoose.models.Usuario || mongoose.model('Usuario', new mongoose.Schema({
     username: { type: String, unique: true, required: true },
     salt: String,
@@ -43,83 +50,77 @@ const Arquivo = mongoose.models.Arquivo || mongoose.model('Arquivo', new mongoos
     dataUpload: { type: Date, default: Date.now }
 }));
 
-// --- ROTA DE DEBUG ---
-app.get('/api/debug', (req, res) => {
-    res.json({ status: "API Online (ESM Mode)", mongoStatus: isConnected ? "Conectado" : "Desconectado" });
-});
+// --- ROTA DE TESTE ---
+app.get('/api/debug', (req, res) => res.json({ status: "Online" }));
 
-// --- ROTA REGISTER ---
+// --- ROTA DE REGISTRO ---
 app.post('/api/auth/register', async (req, res) => {
     try {
+        console.log("📝 Tentativa de Registro:", req.body.username); // Log para debug
+        
         await connectToDatabase();
 
         const { username, salt, authHash } = req.body;
-        
-        if(!username || !authHash) {
-            return res.status(400).json({ erro: "Dados incompletos" });
+
+        // Validação
+        if (!username || !authHash) {
+            return res.status(400).json({ erro: "Dados inválidos: Username ou Hash faltando" });
         }
 
-        const usuarioExistente = await Usuario.findOne({ username });
-        if (usuarioExistente) return res.status(400).json({ erro: "Usuário já existe!" });
+        // Verifica duplicidade
+        const existe = await Usuario.findOne({ username });
+        if (existe) {
+            console.log("⚠️ Usuário já existe:", username);
+            return res.status(400).json({ erro: "Usuário/Método já cadastrado para este CPF!" });
+        }
 
-        const novoUsuario = new Usuario({ username, salt, authHash });
-        await novoUsuario.save();
+        // Cria
+        const novo = new Usuario({ username, salt, authHash });
+        await novo.save();
+        
+        console.log("✅ Sucesso:", username);
+        res.status(200).json({ mensagem: "Criado com sucesso!" });
 
-        res.json({ mensagem: "Sucesso!" });
     } catch (erro) {
-        console.error("Erro no Registro:", erro);
-        res.status(500).json({ erro: "Erro interno", detalhe: erro.message });
+        console.error("🔥 ERRO NO REGISTRO:", erro);
+        // Retorna JSON mesmo no erro (evita o erro 'Unexpected token A')
+        res.status(500).json({ 
+            erro: "Erro interno do servidor", 
+            detalhe: erro.message 
+        });
     }
 });
 
-// --- ROTA SALT ---
+// --- ROTA DE SALT ---
 app.get('/api/auth/salt/:username', async (req, res) => {
     try {
         await connectToDatabase();
         const usuario = await Usuario.findOne({ username: req.params.username });
-        if (!usuario) return res.status(404).json({ erro: "Usuário não encontrado." });
+        
+        if (!usuario) {
+            return res.status(404).json({ erro: "Método não encontrado para este usuário" });
+        }
         res.json({ salt: usuario.salt });
     } catch (erro) {
         res.status(500).json({ erro: erro.message });
     }
 });
 
-// --- ROTA LOGIN ---
+// --- ROTA DE LOGIN ---
 app.post('/api/auth/login', async (req, res) => {
     try {
         await connectToDatabase();
         const { username, authHash } = req.body;
         const usuario = await Usuario.findOne({ username });
-        if (!usuario || usuario.authHash !== authHash) return res.status(401).json({ erro: "Inválido." });
-        res.json({ mensagem: "Acesso Autorizado!", token: "sessao_valida" });
-    } catch (erro) { res.status(500).json({ erro: erro.message }); }
+
+        if (!usuario || usuario.authHash !== authHash) {
+            return res.status(401).json({ erro: "Credenciais inválidas" });
+        }
+        res.json({ mensagem: "OK", token: "sessao_valida" });
+    } catch (erro) {
+        res.status(500).json({ erro: erro.message });
+    }
 });
 
-// --- ROTAS ARQUIVOS ---
-app.post('/api/salvar', async (req, res) => {
-    try {
-        await connectToDatabase();
-        const novoArquivo = new Arquivo(req.body);
-        await novoArquivo.save();
-        res.json({ mensagem: "Salvo!" });
-    } catch (erro) { res.status(500).json({ erro: "Erro salvar." }); }
-});
-
-app.get('/api/meus-arquivos/:username', async (req, res) => {
-    try {
-        await connectToDatabase();
-        const arquivos = await Arquivo.find({ dono: req.params.username }).select('-conteudo');
-        res.json(arquivos);
-    } catch (erro) { res.status(500).json({ erro: "Erro listar." }); }
-});
-
-app.get('/api/arquivo/:id', async (req, res) => {
-    try {
-        await connectToDatabase();
-        const arquivo = await Arquivo.findById(req.params.id);
-        res.json(arquivo);
-    } catch (erro) { res.status(500).json({ erro: "Erro baixar." }); }
-});
-
-// --- PULO DO GATO PARA VERCEL (Formato Moderno) ---
+// Export padrão para Vercel
 export default app;
