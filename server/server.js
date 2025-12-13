@@ -105,12 +105,11 @@ app.get('/api/arquivo/:id', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 
-// Configuração especial para Vercel
+// ISSO É OBRIGATÓRIO PARA A VERCEL:
 if (process.env.VERCEL) {
     module.exports = app;
 } else {
-    // Configuração para rodar no seu PC (localhost)
     app.listen(PORT, () => {
-        console.log(`Servidor rodando na porta ${PORT} 🚀`);
+        console.log(`Rodando na porta ${PORT} 🚀`);
     });
 }
