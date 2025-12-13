@@ -1,30 +1,100 @@
+/* ==========================================================================
+   ARQUIVO MESTRE DE ESTILOS - SECURE VAULT (TEMA TÁTICO)
+   ========================================================================== */
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
 
 :root {
   --tac-black: #050505;
   --tac-dark: #111111;
-  --tac-green: #00ff41; /* O Verde Matrix/Terminal */
+  --tac-green: #00ff41; /* Verde Hacker Padrão */
   --tac-gray: #333333;
   --tac-text: #cccccc;
+  --tac-danger: #ff3333;
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--tac-black); color: var(--tac-text); font-family: 'JetBrains Mono', monospace; font-size: 14px; }
 
-/* === LAYOUT === */
-.tactical-layout { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+body, html {
+  margin: 0; padding: 0;
+  background-color: var(--tac-black);
+  color: var(--tac-text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  height: 100%;
+}
 
-/* === SIDEBAR === */
+/* ==========================================================================
+   1. ESTILOS DO LOGIN (CENTRALIZADO)
+   ========================================================================== */
+.login-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  width: 100vw;
+  background-color: black;
+  /* Grade de fundo tática */
+  background-image: linear-gradient(rgba(0, 255, 65, 0.05) 1px, transparent 1px),
+  linear-gradient(90deg, rgba(0, 255, 65, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.login-box {
+  width: 100%;
+  max-width: 400px;
+  background: #0a0a0a;
+  border: 1px solid var(--tac-green);
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: 0 0 20px rgba(0, 255, 65, 0.1);
+  text-align: center;
+}
+
+.login-box h1 { margin: 0; color: white; font-size: 2rem; letter-spacing: 2px; }
+.login-box p { color: var(--tac-green); margin: 5px 0 20px 0; font-size: 0.8rem; letter-spacing: 3px; }
+
+.login-box input {
+  width: 100%; background: black; border: 1px solid var(--tac-gray);
+  color: white; padding: 15px; font-family: inherit; text-align: center;
+  font-size: 1.1rem; transition: 0.3s;
+}
+.login-box input:focus { outline: none; border-color: var(--tac-green); box-shadow: 0 0 10px rgba(0, 255, 65, 0.2); }
+
+.btn-action {
+  width: 100%; background: var(--tac-green); color: black; border: none;
+  padding: 15px; font-weight: bold; font-family: inherit; cursor: pointer;
+  text-transform: uppercase; transition: 0.2s;
+}
+.btn-action:hover { background: white; box-shadow: 0 0 15px var(--tac-green); }
+
+.login-box a { color: #666; text-decoration: none; font-size: 0.8rem; margin-top: 10px; display: block; }
+.login-box a:hover { color: var(--tac-green); }
+
+
+/* ==========================================================================
+   2. ESTILOS DO DASHBOARD (LAYOUT GERAL)
+   ========================================================================== */
+.tactical-layout {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden; /* Impede rolagem dupla */
+}
+
+/* --- SIDEBAR LATERAL --- */
 .tactical-sidebar {
-  width: 250px;
+  width: 260px;
   background: var(--tac-black);
   border-right: 1px solid var(--tac-gray);
   display: flex; flex-direction: column; padding: 20px;
+  z-index: 10;
 }
 
 .brand-box {
-  border: 1px solid var(--tac-green);
-  padding: 15px; display: flex; align-items: center; gap: 10px; margin-bottom: 40px;
+  border: 1px solid var(--tac-green); padding: 15px;
+  display: flex; align-items: center; gap: 10px; margin-bottom: 40px;
   color: var(--tac-green); background: rgba(0, 255, 65, 0.05);
 }
 .brand-text h1 { margin: 0; font-size: 1rem; letter-spacing: 1px; }
@@ -49,20 +119,21 @@ body { margin: 0; background: var(--tac-black); color: var(--tac-text); font-fam
 .system-info {
   border-top: 1px solid var(--tac-gray); padding-top: 20px; font-size: 0.75rem; color: #666;
 }
-.system-info p { margin: 5px 0; }
 .status-ok { color: var(--tac-green); font-weight: bold; }
-
 .btn-logout {
-  width: 100%; margin-top: 15px; background: transparent; border: 1px solid #ff4444; color: #ff4444;
-  padding: 8px; cursor: pointer; font-family: inherit; font-size: 0.8rem;
+  width: 100%; margin-top: 15px; background: transparent; border: 1px solid var(--tac-danger);
+  color: var(--tac-danger); padding: 8px; cursor: pointer; font-family: inherit; font-size: 0.8rem;
 }
-.btn-logout:hover { background: #ff4444; color: black; }
+.btn-logout:hover { background: var(--tac-danger); color: black; }
 
-/* === MAIN AREA === */
-.tactical-main { flex: 1; display: flex; flex-direction: column; background: #080808; }
 
-/* Grid de Fundo Tático */
+/* --- ÁREA PRINCIPAL (MAIN) --- */
 .tactical-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #080808;
+  /* Padrão de grade sutil no fundo */
   background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
   linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
   background-size: 20px 20px;
@@ -70,7 +141,8 @@ body { margin: 0; background: var(--tac-black); color: var(--tac-text); font-fam
 
 .main-header {
   padding: 20px; border-bottom: 1px solid var(--tac-gray);
-  display: flex; justify-content: space-between; align-items: center; background: var(--tac-black);
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--tac-black);
 }
 .path-display { color: #666; font-size: 0.9rem; }
 
@@ -80,14 +152,25 @@ body { margin: 0; background: var(--tac-black); color: var(--tac-text); font-fam
 }
 .btn-add:hover { background: white; }
 
-.data-grid { padding: 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; overflow-y: auto; }
+
+/* ==========================================================================
+   3. GRID DE ARQUIVOS E CARDS
+   ========================================================================== */
+.data-grid {
+  padding: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 15px;
+  overflow-y: auto;
+}
 
 .data-card {
   background: var(--tac-black); border: 1px solid var(--tac-gray); padding: 15px;
   cursor: pointer; transition: 0.2s; position: relative;
 }
 .data-card:hover { border-color: var(--tac-green); box-shadow: 0 0 10px rgba(0, 255, 65, 0.1); }
-/* Cantoneiras Táticas */
+
+/* Cantoneiras Táticas (Detalhe visual nos cantos) */
 .data-card::after {
   content: ''; position: absolute; top: -1px; right: -1px; width: 10px; height: 10px;
   border-top: 2px solid var(--tac-green); border-right: 2px solid var(--tac-green); opacity: 0;
@@ -96,21 +179,40 @@ body { margin: 0; background: var(--tac-black); color: var(--tac-text); font-fam
 
 .card-header { display: flex; justify-content: space-between; color: #666; font-size: 0.7rem; margin-bottom: 10px; }
 .card-body h3 { margin: 0; color: white; font-size: 1rem; font-weight: normal; }
-.card-footer { margin-top: 15px; border-top: 1px dashed #222; padding-top: 10px; display: flex; justify-content: space-between; color: #555; font-size: 0.75rem; }
+.card-footer {
+  margin-top: 15px; border-top: 1px dashed #222; padding-top: 10px;
+  display: flex; justify-content: space-between; color: #555; font-size: 0.75rem;
+}
 .security-tag { color: var(--tac-green); border: 1px solid var(--tac-green); padding: 0 4px; }
-
 .empty-terminal { grid-column: 1 / -1; color: #444; margin-top: 50px; font-size: 1.2rem; }
 
-/* === MODAIS === */
-.modal-screen { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 999; }
-.modal-window { background: black; border: 1px solid var(--tac-green); width: 100%; max-width: 500px; padding: 2px; }
 
-.modal-title { background: var(--tac-green); color: black; padding: 10px; display: flex; justify-content: space-between; font-weight: bold; }
+/* ==========================================================================
+   4. MODAIS E VISUALIZAÇÃO DE DADOS
+   ========================================================================== */
+.modal-screen {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.9);
+  display: flex; justify-content: center; align-items: center; z-index: 9999;
+}
+
+.modal-window {
+  background: black; border: 1px solid var(--tac-green);
+  width: 100%; max-width: 500px; padding: 2px;
+}
+
+.modal-title {
+  background: var(--tac-green); color: black; padding: 10px;
+  display: flex; justify-content: space-between; font-weight: bold;
+}
 .modal-title button { background: none; border: none; font-weight: bold; cursor: pointer; }
 
 .type-selector { display: flex; border-bottom: 1px solid var(--tac-green); }
-.type-selector button { flex: 1; background: black; color: #666; border: none; padding: 15px; cursor: pointer; font-family: inherit; }
-.type-selector button.selected { background: #111; color: var(--tac-green); border-bottom: 3px solid var(--tac-green); }
+.type-selector button {
+  flex: 1; background: black; color: #666; border: none; padding: 15px; cursor: pointer; font-family: inherit;
+}
+.type-selector button.selected {
+  background: #111; color: var(--tac-green); border-bottom: 3px solid var(--tac-green);
+}
 
 .form-group { padding: 20px; }
 .form-group label { display: block; color: var(--tac-green); margin-bottom: 5px; font-size: 0.8rem; }
@@ -119,16 +221,46 @@ body { margin: 0; background: var(--tac-black); color: var(--tac-text); font-fam
 }
 .form-group input:focus, .form-group textarea:focus { outline: none; border-color: var(--tac-green); }
 
-.btn-execute { width: 100%; background: transparent; color: var(--tac-green); border: 1px solid var(--tac-green); padding: 15px; cursor: pointer; font-family: inherit; font-weight: bold; transition: 0.2s; }
+.btn-execute {
+  width: 100%; background: transparent; color: var(--tac-green);
+  border: 1px solid var(--tac-green); padding: 15px; cursor: pointer;
+  font-family: inherit; font-weight: bold; transition: 0.2s;
+}
 .btn-execute:hover { background: var(--tac-green); color: black; }
 
-/* View */
+
+/* --- VISUALIZAR ARQUIVO (O Blur está aqui!) --- */
 .view-container { padding: 20px; background: #080808; text-align: center; }
-.code-view { text-align: left; color: var(--tac-green); white-space: pre-wrap; word-break: break-all; border: 1px dashed #333; padding: 10px; }
+
+.code-view {
+  text-align: left;
+  color: var(--tac-green);
+  white-space: pre-wrap;
+  word-break: break-all;
+  border: 1px dashed #333;
+  padding: 15px;
+  
+  /* SEGURANÇA VISUAL */
+  filter: blur(8px);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  user-select: all;
+}
+.code-view:hover {
+  filter: blur(0);
+  background: rgba(0, 255, 65, 0.05);
+  border-color: var(--tac-green);
+}
+
 .img-view { max-width: 100%; border: 1px solid #333; }
-.link-download { color: var(--tac-green); text-decoration: none; border: 1px solid var(--tac-green); padding: 10px; display: inline-block; }
+.link-download {
+  color: var(--tac-green); text-decoration: none; border: 1px solid var(--tac-green);
+  padding: 10px; display: inline-block;
+}
 .link-download:hover { background: var(--tac-green); color: black; }
 
-/* Login (Ajuste para Tático) */
-.login-wrapper { background: #000; }
-.login-box { border: 1px solid var(--tac-green); box-shadow: none; background: #050505; }
+/* Barra de Rolagem Personalizada (Hacker Style) */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #000; }
+::-webkit-scrollbar-thumb { background: #333; border: 1px solid #000; }
+::-webkit-scrollbar-thumb:hover { background: var(--tac-green); }

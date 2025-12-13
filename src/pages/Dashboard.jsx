@@ -2,8 +2,12 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { bufferParaBase64, base64ParaBuffer } from '../crypto';
 import AIChatBox from '../components/AIChatBox';
+import Logo from '../components/Logo'; // Importando sua nova Logo
 import '../App.css';
-import { Shield, Lock, FileText, Folder, HardDrive, Plus, LogOut, Terminal } from 'lucide-react';
+import { 
+  Lock, FileText, Folder, HardDrive, 
+  Plus, LogOut, Terminal 
+} from 'lucide-react';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -11,7 +15,7 @@ export default function Dashboard() {
   const { chaveMestra, usuario } = location.state || {};
 
   const [listaItens, setListaItens] = useState([]);
-  const [filtro, setFiltro] = useState('todos'); // 'todos', 'text', 'file'
+  const [filtro, setFiltro] = useState('todos'); 
   
   // Modais
   const [modalNovo, setModalNovo] = useState(false);
@@ -44,9 +48,9 @@ export default function Dashboard() {
     return item.tipoArquivo !== 'secret/text';
   });
 
-  // --- LÓGICA MANTIDA ---
+  // --- LÓGICA DE SEGURANÇA ---
   async function handleSalvar() {
-    if (!titulo) return alert("ERRO: Título ausente.");
+    if (!titulo) return alert("ERRO: Identificador ausente.");
     let bytes, mime;
     if (abaForm === 'arquivo') {
       if (!arquivo) return alert("ERRO: Arquivo não selecionado.");
@@ -72,18 +76,22 @@ export default function Dashboard() {
   }
 
   async function abrirItem(id) {
-    const res = await fetch(`${API_URL}/api/arquivo/${id}`);
-    const item = await res.json();
-    const iv = base64ParaBuffer(item.iv);
-    const cifrado = base64ParaBuffer(item.conteudo);
-    const decifrado = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv }, chaveMestra, cifrado);
-    
-    if (item.tipoArquivo === 'secret/text') {
-      const texto = new TextDecoder().decode(decifrado);
-      setModalVer({ ...item, conteudoReal: texto, tipo: 'texto' });
-    } else {
-      const url = URL.createObjectURL(new Blob([decifrado], { type: item.tipoArquivo }));
-      setModalVer({ ...item, url, tipo: 'arquivo' });
+    try {
+      const res = await fetch(`${API_URL}/api/arquivo/${id}`);
+      const item = await res.json();
+      const iv = base64ParaBuffer(item.iv);
+      const cifrado = base64ParaBuffer(item.conteudo);
+      const decifrado = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv }, chaveMestra, cifrado);
+      
+      if (item.tipoArquivo === 'secret/text') {
+        const texto = new TextDecoder().decode(decifrado);
+        setModalVer({ ...item, conteudoReal: texto, tipo: 'texto' });
+      } else {
+        const url = URL.createObjectURL(new Blob([decifrado], { type: item.tipoArquivo }));
+        setModalVer({ ...item, url, tipo: 'arquivo' });
+      }
+    } catch (e) {
+      alert("FALHA DE SEGURANÇA: Chave inválida ou dados corrompidos.");
     }
   }
 
@@ -93,7 +101,7 @@ export default function Dashboard() {
       {/* SIDEBAR TÁTICA */}
       <aside className="tactical-sidebar">
         <div className="brand-box">
-          <Shield size={32} />
+          <Logo size={42} /> {/* SUA NOVA LOGO AQUI */}
           <div className="brand-text">
             <h1>SECURE_VAULT</h1>
             <span>GOV.SYSTEM.V2</span>
@@ -159,7 +167,7 @@ export default function Dashboard() {
 
       <AIChatBox />
 
-      {/* MODAIS TÁTICOS */}
+      {/* MODAIS */}
       {modalNovo && (
         <div className="modal-screen">
           <div className="modal-window">
@@ -181,7 +189,7 @@ export default function Dashboard() {
             {abaForm === 'arquivo' ? (
               <div className="form-group">
                 <label>CARREGAR FONTE:</label>
-                <input type="file" onChange={e=>setArquivo(e.target.files[0])} />
+                <input type="file" onChange={e=>setArquivo(e.target.files[0])} style={{padding: '5px'}} />
               </div>
             ) : (
               <div className="form-group">
