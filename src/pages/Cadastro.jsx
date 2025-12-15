@@ -6,13 +6,53 @@ import PatternLock from '../components/PatternLock';
 import '../App.css';
 import { Lock, Hash, Grid, Type, Eye, EyeOff } from 'lucide-react';
 
+// --- FUNÇÃO MATEMÁTICA DE VALIDAÇÃO DE CPF (Módulo 11) ---
+function validarCPF(cpf) {
+  // Remove tudo que não é dígito
+  cpf = cpf.replace(/[^\d]+/g, '');
+
+  if (cpf == '') return false;
+
+  // Elimina CPFs invalidos conhecidos (todos numeros iguais)
+  if (cpf.length != 11 || 
+      cpf == "00000000000" || 
+      cpf == "11111111111" || 
+      cpf == "22222222222" || 
+      cpf == "33333333333" || 
+      cpf == "44444444444" || 
+      cpf == "55555555555" || 
+      cpf == "66666666666" || 
+      cpf == "77777777777" || 
+      cpf == "88888888888" || 
+      cpf == "99999999999")
+          return false;
+
+  // Valida 1º Dígito
+  let add = 0;
+  for (let i = 0; i < 9; i++) 
+      add += parseInt(cpf.charAt(i)) * (10 - i);
+  let rev = 11 - (add % 11);
+  if (rev == 10 || rev == 11) rev = 0;
+  if (rev != parseInt(cpf.charAt(9))) return false;
+
+  // Valida 2º Dígito
+  add = 0;
+  for (let i = 0; i < 10; i++) 
+      add += parseInt(cpf.charAt(i)) * (11 - i);
+  rev = 11 - (add % 11);
+  if (rev == 10 || rev == 11) rev = 0;
+  if (rev != parseInt(cpf.charAt(10))) return false;
+
+  return true;
+}
+
 export default function Cadastro() {
   const navigate = useNavigate();
   const location = useLocation();
   
   const [metodo, setMetodo] = useState(location.state?.metodoInicial || "senha");
   const [cpf, setCpf] = useState("");
-  const [status, setStatus] = useState(""); // Mensagem de erro/sucesso
+  const [status, setStatus] = useState("");
 
   const [senha, setSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
@@ -24,10 +64,9 @@ export default function Cadastro() {
 
   const API_URL = "https://tcc-vault.vercel.app"; 
 
-  // Função para trocar de aba e LIMPAR OS ERROS (Fix visual)
   const trocarMetodo = (novoMetodo) => {
     setMetodo(novoMetodo);
-    setStatus(""); // Limpa mensagem antiga
+    setStatus(""); 
   };
 
   const handleCpfChange = (e) => {
@@ -43,7 +82,15 @@ export default function Cadastro() {
     let segredoFinal = "";
     let sufixo = ""; 
 
-    if (!cpf || cpf.length < 14) return setStatus("⚠️ CPF inválido.");
+    // --- AQUI ENTRA A VALIDAÇÃO REAL ---
+    if (!cpf) return setStatus("⚠️ Digite o CPF.");
+    
+    // Chama a função matemática
+    const cpfValido = validarCPF(cpf);
+    if (!cpfValido) {
+      return setStatus("⛔ ERRO: Este CPF é matematicamente inválido.");
+    }
+    // -----------------------------------
 
     if (metodo === 'senha') {
       if (senha !== confirmarSenha) return setStatus("⚠️ Senhas não conferem.");
@@ -63,7 +110,6 @@ export default function Cadastro() {
       sufixo = "_frase";
     }
     else if (metodo === 'pattern') {
-      // "1-2-3" tem 5 caracteres. Se for menor que isso, é muito curto.
       if (!padrao || padrao.length < 5) return setStatus("⚠️ Padrão muito curto (ligue + pontos).");
       segredoFinal = padrao;
       sufixo = "_pattern";
@@ -79,7 +125,6 @@ export default function Cadastro() {
       const authHash = await gerarHashDeAutenticacao(key);
       
       const cpfReal = cpf.replace(/\D/g, "");
-      // DEBUG: Verifique no console se o username está correto
       const usernameComSufixo = cpfReal + sufixo;
       console.log("Enviando cadastro:", usernameComSufixo);
 
@@ -99,7 +144,6 @@ export default function Cadastro() {
         setStatus("✅ SUCESSO! REDIRECIONANDO...");
         setTimeout(() => navigate('/login'), 1500);
       } else {
-        // Mostra o erro exato que veio do servidor
         if (dados.erro && dados.erro.includes('já cadastrado')) {
            setStatus(`⛔ CPF JÁ POSSUI ${metodo.toUpperCase()} CADASTRADO.`);
         } else {
@@ -169,7 +213,6 @@ export default function Cadastro() {
 
         <button className="btn-action" onClick={handleCadastro} style={{marginTop: '20px'}}>[ REGISTRAR ]</button>
         
-        {/* MENSAGEM DE STATUS */}
         <p style={{marginTop: '15px', color: status.includes('✅') ? '#00ff41' : (status.includes('⏳') ? '#ffff00' : '#ff3333'), minHeight: '20px', fontSize: '0.85rem'}}>
           {status}
         </p>
