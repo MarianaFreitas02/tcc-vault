@@ -58,13 +58,6 @@ O fluxo de segurança segue o padrão **Encrypt-then-Upload**:
 
 ---
 
-## 📸 Screenshots
-
-| Tela de Login | Cofre (Dashboard) |
-|:---:|:---:|
-| *Insira aqui um print do Login* | *Insira aqui um print do Dashboard* |
-
----
 
 ## 🔧 Como Rodar Localmente
 
