@@ -6,7 +6,7 @@ import Logo from '../components/Logo';
 import '../App.css';
 import { 
   Lock, FileText, Folder, HardDrive, 
-  Plus, Terminal, Trash2 // <--- Adicionei Trash2 aqui
+  Plus, Terminal, Trash2, UploadCloud 
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -19,6 +19,9 @@ export default function Dashboard() {
   const [modalNovo, setModalNovo] = useState(false);
   const [modalVer, setModalVer] = useState(null);
   const [abaForm, setAbaForm] = useState('arquivo');
+  
+  // ESTADO PARA DRAG & DROP
+  const [isDragging, setIsDragging] = useState(false);
   
   const [titulo, setTitulo] = useState("");
   const [conteudoTexto, setConteudoTexto] = useState("");
@@ -39,22 +42,43 @@ export default function Dashboard() {
     } catch (e) { console.error("Erro Conexão Tática"); }
   }
 
-  // --- NOVA FUNÇÃO DE EXCLUIR ---
+  // --- FUNÇÕES DE DRAG & DROP ---
+  const handleDragOver = (e) => {
+    e.preventDefault(); // Impede o navegador de abrir o arquivo
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    // Um pequeno fix para evitar "piscar" quando passa por cima de elementos filhos
+    if (e.currentTarget.contains(e.relatedTarget)) return;
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      
+      // Configura o modal automaticamente
+      setArquivo(file);
+      setTitulo(file.name); // Já preenche o nome
+      setAbaForm('arquivo');
+      setModalNovo(true);
+    }
+  };
+  // -----------------------------
+
   async function handleExcluir(e, id) {
-    e.stopPropagation(); // Impede que o cartão abra ao clicar na lixeira
-    
-    // Confirmação de segurança estilo terminal
+    e.stopPropagation();
     const confirmar = window.confirm("⚠️ ATENÇÃO AGENTE:\n\nTem certeza que deseja DELETAR PERMANENTEMENTE este registro?\nEssa ação não pode ser desfeita.");
-    
     if (!confirmar) return;
 
     try {
-        const res = await fetch(`${API_URL}/api/arquivo/${id}`, {
-            method: 'DELETE'
-        });
-
+        const res = await fetch(`${API_URL}/api/arquivo/${id}`, { method: 'DELETE' });
         if (res.ok) {
-            // Atualiza a lista removendo o item visualmente (mais rápido)
             setListaItens(listaItens.filter(item => item._id !== id));
         } else {
             alert("❌ Erro ao excluir arquivo.");
@@ -123,7 +147,28 @@ export default function Dashboard() {
   const cpfVisual = usuario ? usuario.split('_')[0].replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4") : "UNKNOWN";
 
   return (
-    <div className="tactical-layout">
+    // ADICIONEI OS EVENTOS DE DRAG AQUI NO CONTAINER PRINCIPAL
+    <div 
+      className="tactical-layout"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* --- OVERLAY DE DRAG & DROP --- */}
+      {isDragging && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999,
+          border: '4px dashed #00ff41', display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', pointerEvents: 'none'
+        }}>
+          <UploadCloud size={100} color="#00ff41" />
+          <h1 style={{color: '#00ff41', marginTop: '20px', letterSpacing: '5px'}}>
+            DETECTADO ARQUIVO EXTERNO
+          </h1>
+          <p style={{color: '#fff', letterSpacing: '2px'}}>SOLTE PARA CRIPTOGRAFAR</p>
+        </div>
+      )}
+
       <aside className="tactical-sidebar">
         <div className="brand-box">
           <Logo size={42} />
@@ -156,26 +201,18 @@ export default function Dashboard() {
             <div key={item._id} className="data-card" onClick={() => abrirItem(item._id)}>
               <div className="card-header">
                 <span className="file-id">ID: {item._id.slice(-6).toUpperCase()}</span>
-                
-                {/* --- BOTÃO DE DELETE --- */}
                 <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
-                   <button 
-                      onClick={(e) => handleExcluir(e, item._id)} 
-                      className="btn-delete-card"
-                      title="Excluir Registro"
-                      style={{background: 'none', border: 'none', cursor: 'pointer', color: '#ff3333', padding: '0'}}
-                   >
+                   <button onClick={(e) => handleExcluir(e, item._id)} className="btn-delete-card" style={{background: 'none', border: 'none', cursor: 'pointer', color: '#ff3333', padding: '0'}}>
                       <Trash2 size={16} />
                    </button>
                    {item.tipoArquivo === 'secret/text' ? <Lock size={14} /> : <FileText size={14} />}
                 </div>
-
               </div>
               <div className="card-body"><h3>{item.nomeOriginal}</h3></div>
               <div className="card-footer"><span>{new Date(item.dataUpload).toLocaleDateString()}</span><span className="security-tag">AES-256</span></div>
             </div>
           ))}
-          {itensVisiveis.length === 0 && <div className="empty-terminal"><p>{'>'} NENHUM DADO ENCONTRADO.</p></div>}
+          {itensVisiveis.length === 0 && <div className="empty-terminal"><p>{'>'} NENHUM DADO ENCONTRADO. ARRASTE UM ARQUIVO PARA COMEÇAR.</p></div>}
         </div>
       </main>
       <AIChatBox />
@@ -190,7 +227,12 @@ export default function Dashboard() {
             </div>
             <div className="form-group"><label>IDENTIFICADOR:</label><input value={titulo} onChange={e=>setTitulo(e.target.value)} autoFocus /></div>
             {abaForm === 'arquivo' ? (
-              <div className="form-group"><label>FONTE:</label><input type="file" onChange={e=>setArquivo(e.target.files[0])} style={{padding: '5px'}} /></div>
+              <div className="form-group">
+                <label>FONTE:</label>
+                {/* Se veio do drag&drop, mostra o nome do arquivo, senão mostra o input file */}
+                {arquivo ? <div style={{color: '#00ff41', border: '1px solid #00ff41', padding: '10px'}}>[ ARQUIVO CARREGADO: {arquivo.name} ]</div> : 
+                <input type="file" onChange={e=>{setArquivo(e.target.files[0]); if(e.target.files[0]) setTitulo(e.target.files[0].name)}} style={{padding: '5px'}} />}
+              </div>
             ) : (
               <div className="form-group"><label>DADOS:</label><textarea rows="5" value={conteudoTexto} onChange={e=>setConteudoTexto(e.target.value)} /></div>
             )}
