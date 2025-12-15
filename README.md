@@ -1,40 +1,101 @@
-# 🔐 Secure Vault: Zero-Knowledge Storage
+# TCC VAULT - Sistema de Armazenamento Criptografado (Client-Side Encryption)
 
-> Aplicação web de armazenamento seguro onde a privacidade é garantida matematicamente, não por confiança.
+![License](https://img.shields.io/badge/license-MIT-green)
+![Status](https://img.shields.io/badge/status-Stable-blue)
+![Security](https://img.shields.io/badge/encryption-AES--GCM-red)
 
-[![Vercel](https://img.shields.io/badge/Deploy-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://tcc-vault.vercel.app/login)
-![Status](https://img.shields.io/badge/Status-Concluído-00FF00?style=for-the-badge)
-![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
+## 🔐 Sobre o Projeto
 
-## 📌 Sobre o Projeto
-Este projeto foi desenvolvido como Trabalho de Conclusão de Curso (TCC) em Engenharia de Computação. O objetivo foi criar uma alternativa aos serviços de nuvem tradicionais, implementando uma arquitetura **Zero-Knowledge (Conhecimento Zero)**.
+O **TCC VAULT** é uma aplicação de cofre digital desenvolvida com foco em **Privacidade Zero-Knowledge**. Diferente de sistemas tradicionais (como Google Drive ou Dropbox), onde o servidor possui as chaves para ler os arquivos, o TCC VAULT realiza toda a criptografia **no navegador do cliente** antes que qualquer dado seja enviado à rede.
 
-Diferente de sistemas convencionais, no Secure Vault, **a criptografia ocorre no lado do cliente (navegador)** antes do upload. O servidor armazena apenas dados cifrados e nunca tem acesso às chaves de descriptografia.
+O servidor armazena apenas "blobs" binários criptografados e não possui capacidade matemática para ler o conteúdo dos usuários, garantindo confidencialidade mesmo em caso de vazamento de banco de dados.
 
-### 🔗 [Acesse o Deploy (Demo)](https://tcc-vault.vercel.app/login)
+### 🚀 Funcionalidades Principais
+
+* **Criptografia Militar (AES-GCM 256-bit):** Arquivos são cifrados localmente.
+* **Plausible Deniability (Negação Plausível):** O mesmo CPF pode ter múltiplos cofres (Senha, PIN, Frase), permitindo ocultar o cofre real em situações de coação.
+* **Autenticação Robusta:** Derivação de chaves usando PBKDF2 com Salt único por usuário.
+* **UX Tática:** Interface imersiva, Drag & Drop de arquivos e feedback visual de segurança.
+* **Segurança Ativa:** Auto-logout após 5 minutos de inatividade.
 
 ---
 
-## 🏗 Arquitetura & Segurança
-A segurança do sistema baseia-se em três pilares implementados via **Web Crypto API**:
+## 🛠️ Tecnologias Utilizadas
 
-1.  **Cifragem Simétrica (AES-GCM):** Os arquivos são encriptados com uma chave única gerada no momento do upload.
-2.  **Derivação de Chaves (PBKDF2):** A chave de acesso do usuário deriva da senha mestra com *salt* criptográfico, garantindo proteção contra ataques de força bruta.
-3.  **Vetor de Inicialização (IV):** Cada arquivo possui um IV único, impedindo padrões repetitivos na cifra.
+### Frontend
+* **React + Vite:** Performance e reatividade.
+* **Web Crypto API:** API nativa do navegador para operações criptográficas de alta performance.
+* **Lucide React:** Ícones vetoriais leves.
 
-### Fluxo de Dados
-```mermaid
-sequenceDiagram
-    participant User as Usuário
-    participant Browser as Cliente (React + WebCrypto)
-    participant Server as Servidor (Node.js)
-    participant DB as MongoDB
+### Backend (Serverless)
+* **Node.js (Vercel Functions):** Arquitetura escalável e sem servidor fixo.
+* **Express:** Roteamento de API.
+* **Mongoose:** Modelagem de dados.
 
-    User->>Browser: Seleciona Arquivo e Senha
-    Browser->>Browser: Gera Chave AES (PBKDF2)
-    Browser->>Browser: Encripta Arquivo (AES-GCM)
-    Browser->>Server: Envia Arquivo Cifrado (Blob)
-    Note over Server: Servidor não vê o conteúdo real
-    Server->>DB: Armazena Blob Cifrado
-    DB-->>Server: Confirmação
-    Server-->>Browser: Upload Concluído
+### Banco de Dados
+* **MongoDB Atlas:** Armazenamento NoSQL distribuído.
+
+---
+
+## 🧠 Arquitetura de Segurança
+
+O fluxo de segurança segue o padrão **Encrypt-then-Upload**:
+
+1.  **Cadastro/Derivação:**
+    * Usuário digita a senha.
+    * O sistema gera um `Salt` aleatório (16 bytes).
+    * `PBKDF2` (100.000 iterações) deriva a **Chave Mestra** a partir da (Senha + Salt).
+    * O hash de autenticação (sha-256) é enviado ao servidor. A Chave Mestra **nunca** sai da memória RAM do cliente.
+
+2.  **Criptografia de Arquivo:**
+    * Um vetor de inicialização (`IV`) único é gerado para cada arquivo.
+    * O arquivo é criptografado usando `AES-GCM` com a Chave Mestra e o IV.
+    * O servidor recebe: `{ iv, conteudo_cifrado, tipo_mime, nome_falso }`.
+
+3.  **Segurança de Dados:**
+    * O banco de dados vê apenas strings aleatórias (Base64).
+    * Não há "Backdoor" para recuperação de senha (se o usuário esquecer, os dados são perdidos para sempre).
+
+---
+
+## 📸 Screenshots
+
+| Tela de Login | Cofre (Dashboard) |
+|:---:|:---:|
+| *Insira aqui um print do Login* | *Insira aqui um print do Dashboard* |
+
+---
+
+## 🔧 Como Rodar Localmente
+
+Pré-requisitos: Node.js v18+ e uma conta no MongoDB Atlas.
+
+1.  **Clone o repositório:**
+    ```bash
+    git clone [https://github.com/SEU_USUARIO/tcc-vault.git](https://github.com/SEU_USUARIO/tcc-vault.git)
+    cd tcc-vault
+    ```
+
+2.  **Instale as dependências:**
+    ```bash
+    npm install
+    ```
+
+3.  **Configure o Ambiente:**
+    * Crie um arquivo `.env` na raiz.
+    * Adicione sua string de conexão: `VITE_API_URL=http://localhost:3000` (se rodar back local) ou a URL da Vercel.
+
+4.  **Execute:**
+    ```bash
+    npm run dev
+    ```
+
+---
+
+## ⚠️ Aviso Legal
+
+Este projeto é uma **Prova de Conceito (PoC)** acadêmica. Embora utilize algoritmos padrão de mercado (NIST approved), recomenda-se auditoria profissional antes do uso para armazenamento de dados críticos em produção.
+
+---
+
+**Desenvolvido por Mariana Freitas**
