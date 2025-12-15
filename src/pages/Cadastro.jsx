@@ -1,44 +1,37 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { derivarChaveMestra, gerarHashDeAutenticacao } from '../crypto';
 import Logo from '../components/Logo';
 import PatternLock from '../components/PatternLock';
 import '../App.css';
-import { Lock, Hash, Grid, Type, Eye, EyeOff } from 'lucide-react';
+import { Lock, Hash, Grid, Type, Eye, EyeOff, Check, X } from 'lucide-react';
 
-// --- FUNÇÃO MATEMÁTICA DE VALIDAÇÃO DE CPF (Módulo 11) ---
+// Função auxiliar para calcular força da senha (0 a 4)
+function calcularForcaSenha(senha) {
+  let score = 0;
+  if (!senha) return 0;
+
+  if (senha.length >= 8) score += 1; // Tamanho
+  if (/[A-Z]/.test(senha)) score += 1; // Maiúscula
+  if (/[0-9]/.test(senha)) score += 1; // Número
+  if (/[^A-Za-z0-9]/.test(senha)) score += 1; // Especial (!@#)
+
+  return score; // Retorna 0, 1, 2, 3 ou 4
+}
+
 function validarCPF(cpf) {
-  // Remove tudo que não é dígito
   cpf = cpf.replace(/[^\d]+/g, '');
-
   if (cpf == '') return false;
+  if (cpf.length != 11 || /^(\d)\1{10}$/.test(cpf)) return false;
 
-  // Elimina CPFs invalidos conhecidos (todos numeros iguais)
-  if (cpf.length != 11 || 
-      cpf == "00000000000" || 
-      cpf == "11111111111" || 
-      cpf == "22222222222" || 
-      cpf == "33333333333" || 
-      cpf == "44444444444" || 
-      cpf == "55555555555" || 
-      cpf == "66666666666" || 
-      cpf == "77777777777" || 
-      cpf == "88888888888" || 
-      cpf == "99999999999")
-          return false;
-
-  // Valida 1º Dígito
   let add = 0;
-  for (let i = 0; i < 9; i++) 
-      add += parseInt(cpf.charAt(i)) * (10 - i);
+  for (let i = 0; i < 9; i++) add += parseInt(cpf.charAt(i)) * (10 - i);
   let rev = 11 - (add % 11);
   if (rev == 10 || rev == 11) rev = 0;
   if (rev != parseInt(cpf.charAt(9))) return false;
 
-  // Valida 2º Dígito
   add = 0;
-  for (let i = 0; i < 10; i++) 
-      add += parseInt(cpf.charAt(i)) * (11 - i);
+  for (let i = 0; i < 10; i++) add += parseInt(cpf.charAt(i)) * (11 - i);
   rev = 11 - (add % 11);
   if (rev == 10 || rev == 11) rev = 0;
   if (rev != parseInt(cpf.charAt(10))) return false;
@@ -55,6 +48,8 @@ export default function Cadastro() {
   const [status, setStatus] = useState("");
 
   const [senha, setSenha] = useState("");
+  const [forcaSenha, setForcaSenha] = useState(0); // Estado novo para a força
+  
   const [confirmarSenha, setConfirmarSenha] = useState("");
   const [pin, setPin] = useState("");
   const [confirmarPin, setConfirmarPin] = useState("");
@@ -78,23 +73,27 @@ export default function Cadastro() {
     setCpf(v);
   };
 
+  // Atualiza a força sempre que a senha muda
+  const handleSenhaChange = (e) => {
+    const val = e.target.value;
+    setSenha(val);
+    setForcaSenha(calcularForcaSenha(val));
+  };
+
   async function handleCadastro() {
     let segredoFinal = "";
     let sufixo = ""; 
 
-    // --- AQUI ENTRA A VALIDAÇÃO REAL ---
     if (!cpf) return setStatus("⚠️ Digite o CPF.");
-    
-    // Chama a função matemática
-    const cpfValido = validarCPF(cpf);
-    if (!cpfValido) {
-      return setStatus("⛔ ERRO: Este CPF é matematicamente inválido.");
-    }
-    // -----------------------------------
+    if (!validarCPF(cpf)) return setStatus("⛔ ERRO: CPF inválido.");
 
     if (metodo === 'senha') {
+      if (!senha || !confirmarSenha) return setStatus("⚠️ Preencha a senha.");
       if (senha !== confirmarSenha) return setStatus("⚠️ Senhas não conferem.");
-      if (senha.length < 8) return setStatus("⚠️ Mínimo 8 caracteres.");
+      
+      // NOVA VALIDAÇÃO DE FORÇA
+      if (forcaSenha < 3) return setStatus("⚠️ A senha é muito fraca. Melhore-a.");
+      
       segredoFinal = senha;
       sufixo = ""; 
     } 
@@ -110,7 +109,7 @@ export default function Cadastro() {
       sufixo = "_frase";
     }
     else if (metodo === 'pattern') {
-      if (!padrao || padrao.length < 5) return setStatus("⚠️ Padrão muito curto (ligue + pontos).");
+      if (!padrao || padrao.length < 5) return setStatus("⚠️ Padrão muito curto.");
       segredoFinal = padrao;
       sufixo = "_pattern";
     }
@@ -126,7 +125,6 @@ export default function Cadastro() {
       
       const cpfReal = cpf.replace(/\D/g, "");
       const usernameComSufixo = cpfReal + sufixo;
-      console.log("Enviando cadastro:", usernameComSufixo);
 
       const resposta = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
@@ -156,6 +154,22 @@ export default function Cadastro() {
     }
   }
 
+  // Cores da barra de força
+  const getCorForca = () => {
+    if (forcaSenha <= 1) return '#ff3333'; // Vermelho (Fraca)
+    if (forcaSenha === 2) return '#ffff00'; // Amarelo (Média)
+    if (forcaSenha >= 3) return '#00ff41'; // Verde (Forte)
+    return '#333';
+  };
+
+  const getTextoForca = () => {
+    if (forcaSenha === 0) return "";
+    if (forcaSenha <= 1) return "FRACA";
+    if (forcaSenha === 2) return "MÉDIA";
+    if (forcaSenha >= 3) return "SEGURA";
+    return "";
+  };
+
   return (
     <div className="login-wrapper">
       <div className="login-box" style={{maxWidth: '550px'}}>
@@ -182,14 +196,50 @@ export default function Cadastro() {
         {metodo === 'senha' && (
           <>
             <div className="input-group" style={{position: 'relative'}}>
-              <label>SENHA FORTE</label>
-              <input type={mostrarSenha ? "text" : "password"} placeholder="••••••••" value={senha} onChange={e => setSenha(e.target.value)} />
+              <label>CRIAR SENHA FORTE</label>
+              <input 
+                type={mostrarSenha ? "text" : "password"} 
+                placeholder="Senha..." 
+                value={senha} 
+                onChange={handleSenhaChange} 
+                style={{borderColor: getCorForca()}} // Borda muda de cor
+              />
               <button type="button" onClick={() => setMostrarSenha(!mostrarSenha)} style={{position: 'absolute', right: '10px', top: '38px', background: 'none', border: 'none', color: '#666', cursor: 'pointer'}}>{mostrarSenha ? <EyeOff size={16}/> : <Eye size={16}/>}</button>
+              
+              {/* BARRA DE FORÇA VISUAL */}
+              {senha.length > 0 && (
+                <div style={{marginTop: '5px', display: 'flex', alignItems: 'center', gap: '10px'}}>
+                  <div style={{flex: 1, height: '4px', background: '#333', borderRadius: '2px', overflow: 'hidden'}}>
+                    <div style={{
+                      width: `${(forcaSenha / 4) * 100}%`, 
+                      height: '100%', 
+                      background: getCorForca(),
+                      transition: 'width 0.3s, background 0.3s'
+                    }} />
+                  </div>
+                  <span style={{fontSize: '0.7rem', color: getCorForca(), fontWeight: 'bold'}}>{getTextoForca()}</span>
+                </div>
+              )}
+              
+              {/* Dicas só aparecem se a senha for fraca */}
+              {forcaSenha < 3 && senha.length > 0 && (
+                <div style={{fontSize: '0.7rem', color: '#666', marginTop: '5px', textAlign: 'left', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px'}}>
+                  <span style={{color: senha.length >= 8 ? '#00ff41' : '#666'}}>{senha.length >= 8 ? '✓' : '•'} Mínimo 8 chars</span>
+                  <span style={{color: /[A-Z]/.test(senha) ? '#00ff41' : '#666'}}>{/[A-Z]/.test(senha) ? '✓' : '•'} Maiúscula</span>
+                  <span style={{color: /[0-9]/.test(senha) ? '#00ff41' : '#666'}}>{/[0-9]/.test(senha) ? '✓' : '•'} Número</span>
+                  <span style={{color: /[^A-Za-z0-9]/.test(senha) ? '#00ff41' : '#666'}}>{/[^A-Za-z0-9]/.test(senha) ? '✓' : '•'} Símbolo</span>
+                </div>
+              )}
             </div>
-            <div className="input-group"><label>CONFIRMAR SENHA</label><input type="password" placeholder="••••••••" value={confirmarSenha} onChange={e => setConfirmarSenha(e.target.value)} style={{borderColor: senha && confirmarSenha && senha !== confirmarSenha ? '#ff3333' : ''}} /></div>
+
+            <div className="input-group">
+              <label>CONFIRMAR SENHA</label>
+              <input type="password" placeholder="Repita a senha..." value={confirmarSenha} onChange={e => setConfirmarSenha(e.target.value)} style={{borderColor: senha && confirmarSenha && senha !== confirmarSenha ? '#ff3333' : ''}} />
+            </div>
           </>
         )}
 
+        {/* ... (Os outros métodos PIN, FRASE, PADRÃO continuam iguais abaixo) ... */}
         {metodo === 'pin' && (
           <>
             <div className="input-group"><label>PIN NUMÉRICO</label><input type="tel" placeholder="0000" maxLength={8} value={pin} onChange={e => setPin(e.target.value.replace(/\D/g,''))} style={{textAlign: 'center', letterSpacing: '15px', fontSize: '1.5rem'}} /></div>
@@ -212,11 +262,7 @@ export default function Cadastro() {
         )}
 
         <button className="btn-action" onClick={handleCadastro} style={{marginTop: '20px'}}>[ REGISTRAR ]</button>
-        
-        <p style={{marginTop: '15px', color: status.includes('✅') ? '#00ff41' : (status.includes('⏳') ? '#ffff00' : '#ff3333'), minHeight: '20px', fontSize: '0.85rem'}}>
-          {status}
-        </p>
-        
+        <p style={{marginTop: '15px', color: status.includes('✅') ? '#00ff41' : (status.includes('⏳') ? '#ffff00' : '#ff3333'), minHeight: '20px', fontSize: '0.85rem'}}>{status}</p>
         <div style={{marginTop: '20px', borderTop: '1px solid #333', paddingTop: '15px'}}>
           <a href="/login" className="link-back">{'<'} VOLTAR</a>
         </div>
