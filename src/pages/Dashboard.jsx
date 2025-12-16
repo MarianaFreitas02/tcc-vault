@@ -7,7 +7,7 @@ import '../App.css';
 import { 
   Lock, FileText, Folder, HardDrive, 
   Plus, Trash2, UploadCloud, 
-  Film, Image as ImageIcon, Music, Key, Shuffle, Copy, Globe, User, ExternalLink, Search 
+  Film, Image as ImageIcon, Music, Key, Shuffle, Copy, Globe, User, ExternalLink, Search, Skull
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -57,37 +57,28 @@ export default function Dashboard() {
     } catch (e) { console.error("Erro Conexão Tática"); }
   }
 
-  // --- NOVA LÓGICA DE FILTRAGEM (BUSCA LOCAL DENTRO DO DIRETÓRIO) ---
+  // --- LÓGICA DE FILTRAGEM ---
   const itensVisiveis = listaItens.filter(item => {
     const tipo = item.tipoArquivo;
     const nome = item.nomeOriginal.toLowerCase();
     const busca = termoBusca.toLowerCase();
 
-    // 1. PRIMEIRO: Verifica se o nome bate com a busca (se tiver busca)
     if (busca.length > 0 && !nome.includes(busca)) {
-        return false; // Se não bate o nome, já elimina, não importa a pasta
+        return false;
     }
 
-    // 2. SEGUNDO: Verifica se está na pasta correta (Filtro)
-    // Isso garante que a busca só retorne itens DAQUELA pasta
     if (filtro === 'todos') return true;
-    
     if (filtro === 'texto') return tipo === 'secret/text';
-    
     if (filtro === 'senha') return tipo === 'secret/password';
-    
     if (filtro === 'midia') return tipo.startsWith('image/') || tipo.startsWith('video/') || tipo.startsWith('audio/');
-    
     if (filtro === 'arquivo') {
       const isTexto = tipo === 'secret/text';
       const isSenha = tipo === 'secret/password';
       const isMidia = tipo.startsWith('image/') || tipo.startsWith('video/') || tipo.startsWith('audio/');
       return !isTexto && !isSenha && !isMidia;
     }
-    
     return true;
   });
-  // ------------------------------------------------------------------
 
   const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
   const handleDragLeave = (e) => { 
@@ -136,6 +127,28 @@ export default function Dashboard() {
 
     setModalNovo(true);
   };
+
+  // --- AUTO-DESTRUIÇÃO ---
+  async function handleAutoDestruicao() {
+    const confirmar = window.confirm("⛔ PERIGO: VOCÊ ESTÁ PRESTES A EXCLUIR SUA CONTA!\n\nIsso apagará seu login e TODOS os arquivos deste cofre permanentemente.\n\nTem certeza absoluta?");
+    
+    if (confirmar) {
+      const confirmar2 = window.confirm("Última chance: Essa ação é irreversível. Confirmar exclusão?");
+      if (!confirmar2) return;
+
+      try {
+        const res = await fetch(`${API_URL}/api/auth/excluir-conta/${usuario}`, { method: 'DELETE' });
+        if (res.ok) {
+          alert("💥 CONTA DELETADA COM SUCESSO.");
+          navigate('/login');
+        } else {
+          alert("Erro ao excluir.");
+        }
+      } catch (e) {
+        alert("Erro de conexão.");
+      }
+    }
+  }
 
   async function handleSalvar() {
     if (!titulo) return alert("ERRO: Identificador ausente.");
@@ -241,9 +254,10 @@ export default function Dashboard() {
       <aside className="tactical-sidebar">
         <div className="brand-box">
           <Logo size={42} />
+          {/* MUDANÇA AQUI: NOME DO PROJETO */}
           <div className="brand-text">
-            <h1>SECURE_VAULT</h1>
-            <span>GOV.SYSTEM.V2</span>
+            <h1>NEXUS</h1>
+            <span>SECURE.SYSTEM</span>
           </div>
         </div>
 
@@ -275,8 +289,14 @@ export default function Dashboard() {
 
         <div className="system-info">
           <p>STATUS: <span className="status-ok">ONLINE</span></p>
-          <p>USER: {cpfVisual}</p>
-          <button onClick={() => navigate('/login')} className="btn-logout">[ DESCONECTAR ]</button>
+          <p>AGENTE: {cpfVisual}</p>
+          
+          <div style={{display: 'flex', gap: '5px', width: '100%'}}>
+             <button onClick={() => navigate('/login')} className="btn-logout" style={{flex: 1}}>[ SAIR ]</button>
+             <button onClick={handleAutoDestruicao} className="btn-logout" style={{flex: 0.3, background: '#330000', borderColor: '#ff0000', color: '#ff0000'}} title="Excluir Conta">
+                <Skull size={16} />
+             </button>
+          </div>
         </div>
       </aside>
 
@@ -284,13 +304,11 @@ export default function Dashboard() {
         {secaoAtual === 'cofre' ? (
           <>
             <header className="main-header" style={{gap: '15px'}}>
-              {/* CAMINHO DO DIRETÓRIO SEMPRE VISÍVEL */}
               <div className="path-display" style={{flex: 1}}>
                 /VAULT/{filtro.toUpperCase()}/
                 {termoBusca && <span style={{color: '#ffff00', marginLeft: '10px'}}>(BUSCANDO: "{termoBusca}")</span>}
               </div>
 
-              {/* BARRA DE PESQUISA DO DIRETÓRIO */}
               <div className="search-bar" style={{
                 display: 'flex', alignItems: 'center', background: '#000', 
                 border: '1px solid #333', borderRadius: '4px', padding: '5px 10px',
@@ -401,6 +419,7 @@ export default function Dashboard() {
              <div className="modal-title"><h3>{'>'} DADO DESCRIPTOGRAFADO</h3><button onClick={()=>setModalVer(null)}>X</button></div>
             <div className="view-container">
               {modalVer.tipo === 'texto' && <pre className="code-view">{modalVer.conteudoReal}</pre>}
+              
               {modalVer.tipo === 'senha' && (
                 <div style={{display: 'flex', flexDirection: 'column', gap: '15px', padding: '10px'}}>
                   <div><label style={{color:'#666', fontSize:'0.8rem'}}>SERVIÇO:</label><h2 style={{color:'#00ff41', margin:0}}>{modalVer.nomeOriginal}</h2></div>
@@ -428,6 +447,7 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
+              
               {modalVer.tipo === 'arquivo' && (
                  modalVer.tipoArquivo.includes('image') ? <img src={modalVer.url} className="img-view" /> : 
                  modalVer.tipoArquivo.includes('video') ? <video src={modalVer.url} controls className="img-view" /> :
