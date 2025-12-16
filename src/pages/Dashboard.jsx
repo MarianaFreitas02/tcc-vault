@@ -42,7 +42,7 @@ export default function Dashboard() {
   const [senhaGerada, setSenhaGerada] = useState("");
   const [tamanhoSenha, setTamanhoSenha] = useState(16);
 
-  const API_URL = import.meta.env.VITE_API_URL || "https://tcc-vault.vercel.app"; 
+  const API_URL = "https://nexus-access.vercel.app";
 
   useEffect(() => {
     if (!chaveMestra) navigate('/login');

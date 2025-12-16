@@ -82,7 +82,7 @@ export default function Login() {
   const [mostrarSenha, setMostrarSenha] = useState(false); // Controle do olho
 
   const navigate = useNavigate();
-  const API_URL = "https://tcc-vault.vercel.app"; 
+  const API_URL = "https://nexus-access.vercel.app";
 
   const trocarMetodo = (m) => {
     setMetodo(m);

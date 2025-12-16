@@ -57,7 +57,8 @@ export default function Cadastro() {
   const [padrao, setPadrao] = useState("");
   const [mostrarSenha, setMostrarSenha] = useState(false);
 
-  const API_URL = "https://tcc-vault.vercel.app"; 
+
+  const API_URL = "https://nexus-access.vercel.app";
 
   const trocarMetodo = (novoMetodo) => {
     setMetodo(novoMetodo);
