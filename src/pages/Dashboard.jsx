@@ -7,7 +7,7 @@ import '../App.css';
 import { 
   Lock, FileText, Folder, HardDrive, 
   Plus, Trash2, UploadCloud, 
-  Film, Image as ImageIcon, Music, Key, Shuffle, Copy, Globe, User, ExternalLink // <--- Adicionei ExternalLink
+  Film, Image as ImageIcon, Music, Key, Shuffle, Copy, Globe, User, ExternalLink, Search 
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -17,9 +17,10 @@ export default function Dashboard() {
 
   const [listaItens, setListaItens] = useState([]);
   
-  // NAVEGAÇÃO
+  // NAVEGAÇÃO & BUSCA
   const [secaoAtual, setSecaoAtual] = useState('cofre'); 
   const [filtro, setFiltro] = useState('todos'); 
+  const [termoBusca, setTermoBusca] = useState(""); 
   
   // MODAIS E DRAG & DROP
   const [modalNovo, setModalNovo] = useState(false);
@@ -41,7 +42,6 @@ export default function Dashboard() {
   const [senhaGerada, setSenhaGerada] = useState("");
   const [tamanhoSenha, setTamanhoSenha] = useState(16);
 
-  // Use a variável de ambiente se tiver, senão usa a string fixa
   const API_URL = import.meta.env.VITE_API_URL || "https://tcc-vault.vercel.app"; 
 
   useEffect(() => {
@@ -57,20 +57,37 @@ export default function Dashboard() {
     } catch (e) { console.error("Erro Conexão Tática"); }
   }
 
+  // --- NOVA LÓGICA DE FILTRAGEM (BUSCA LOCAL DENTRO DO DIRETÓRIO) ---
   const itensVisiveis = listaItens.filter(item => {
     const tipo = item.tipoArquivo;
+    const nome = item.nomeOriginal.toLowerCase();
+    const busca = termoBusca.toLowerCase();
+
+    // 1. PRIMEIRO: Verifica se o nome bate com a busca (se tiver busca)
+    if (busca.length > 0 && !nome.includes(busca)) {
+        return false; // Se não bate o nome, já elimina, não importa a pasta
+    }
+
+    // 2. SEGUNDO: Verifica se está na pasta correta (Filtro)
+    // Isso garante que a busca só retorne itens DAQUELA pasta
     if (filtro === 'todos') return true;
+    
     if (filtro === 'texto') return tipo === 'secret/text';
+    
     if (filtro === 'senha') return tipo === 'secret/password';
+    
     if (filtro === 'midia') return tipo.startsWith('image/') || tipo.startsWith('video/') || tipo.startsWith('audio/');
+    
     if (filtro === 'arquivo') {
       const isTexto = tipo === 'secret/text';
       const isSenha = tipo === 'secret/password';
       const isMidia = tipo.startsWith('image/') || tipo.startsWith('video/') || tipo.startsWith('audio/');
       return !isTexto && !isSenha && !isMidia;
     }
+    
     return true;
   });
+  // ------------------------------------------------------------------
 
   const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
   const handleDragLeave = (e) => { 
@@ -232,19 +249,19 @@ export default function Dashboard() {
 
         <div className="nav-section">
           <p className="nav-label">DIRETÓRIOS</p>
-          <button className={`nav-btn ${secaoAtual==='cofre' && filtro === 'todos' ? 'active' : ''}`} onClick={() => {setSecaoAtual('cofre'); setFiltro('todos')}}>
+          <button className={`nav-btn ${secaoAtual==='cofre' && filtro === 'todos' ? 'active' : ''}`} onClick={() => {setSecaoAtual('cofre'); setFiltro('todos'); setTermoBusca("")}}>
             <HardDrive size={18} /> [ RAIZ ]
           </button>
-          <button className={`nav-btn ${secaoAtual==='cofre' && filtro === 'texto' ? 'active' : ''}`} onClick={() => {setSecaoAtual('cofre'); setFiltro('texto')}}>
+          <button className={`nav-btn ${secaoAtual==='cofre' && filtro === 'texto' ? 'active' : ''}`} onClick={() => {setSecaoAtual('cofre'); setFiltro('texto'); setTermoBusca("")}}>
             <FileText size={18} /> [ TEXTOS ]
           </button>
-          <button className={`nav-btn ${secaoAtual==='cofre' && filtro === 'arquivo' ? 'active' : ''}`} onClick={() => {setSecaoAtual('cofre'); setFiltro('arquivo')}}>
+          <button className={`nav-btn ${secaoAtual==='cofre' && filtro === 'arquivo' ? 'active' : ''}`} onClick={() => {setSecaoAtual('cofre'); setFiltro('arquivo'); setTermoBusca("")}}>
             <Folder size={18} /> [ ARQUIVOS ]
           </button>
-          <button className={`nav-btn ${secaoAtual==='cofre' && filtro === 'midia' ? 'active' : ''}`} onClick={() => {setSecaoAtual('cofre'); setFiltro('midia')}}>
+          <button className={`nav-btn ${secaoAtual==='cofre' && filtro === 'midia' ? 'active' : ''}`} onClick={() => {setSecaoAtual('cofre'); setFiltro('midia'); setTermoBusca("")}}>
             <Film size={18} /> [ MÍDIA ]
           </button>
-          <button className={`nav-btn ${secaoAtual==='cofre' && filtro === 'senha' ? 'active' : ''}`} onClick={() => {setSecaoAtual('cofre'); setFiltro('senha')}}>
+          <button className={`nav-btn ${secaoAtual==='cofre' && filtro === 'senha' ? 'active' : ''}`} onClick={() => {setSecaoAtual('cofre'); setFiltro('senha'); setTermoBusca("")}}>
             <Key size={18} /> [ SENHAS ]
           </button>
         </div>
@@ -266,10 +283,35 @@ export default function Dashboard() {
       <main className="tactical-main">
         {secaoAtual === 'cofre' ? (
           <>
-            <header className="main-header">
-              <div className="path-display">/VAULT/{filtro.toUpperCase()}/</div>
+            <header className="main-header" style={{gap: '15px'}}>
+              {/* CAMINHO DO DIRETÓRIO SEMPRE VISÍVEL */}
+              <div className="path-display" style={{flex: 1}}>
+                /VAULT/{filtro.toUpperCase()}/
+                {termoBusca && <span style={{color: '#ffff00', marginLeft: '10px'}}>(BUSCANDO: "{termoBusca}")</span>}
+              </div>
+
+              {/* BARRA DE PESQUISA DO DIRETÓRIO */}
+              <div className="search-bar" style={{
+                display: 'flex', alignItems: 'center', background: '#000', 
+                border: '1px solid #333', borderRadius: '4px', padding: '5px 10px',
+                minWidth: '250px'
+              }}>
+                <Search size={16} color="#666" style={{marginRight: '8px'}}/>
+                <input 
+                  type="text" 
+                  placeholder={`Buscar em ${filtro}...`} 
+                  value={termoBusca}
+                  onChange={(e) => setTermoBusca(e.target.value)}
+                  style={{
+                    background: 'none', border: 'none', color: '#00ff41', 
+                    width: '100%', outline: 'none', fontFamily: 'monospace'
+                  }}
+                />
+              </div>
+
               <button className="btn-add" onClick={handleAbrirNovo}><Plus size={16} /> NOVA ENTRADA</button>
             </header>
+
             <div className="data-grid">
               {itensVisiveis.map(item => (
                 <div key={item._id} className="data-card" onClick={() => abrirItem(item._id)}>
@@ -284,7 +326,11 @@ export default function Dashboard() {
                   <div className="card-footer"><span>{new Date(item.dataUpload).toLocaleDateString()}</span><span className="security-tag">AES-256</span></div>
                 </div>
               ))}
-              {itensVisiveis.length === 0 && <div className="empty-terminal"><p>{'>'} PASTA VAZIA.</p></div>}
+              {itensVisiveis.length === 0 && (
+                <div className="empty-terminal">
+                  <p>{termoBusca ? '> NENHUM RESULTADO NESTE DIRETÓRIO.' : '> PASTA VAZIA.'}</p>
+                </div>
+              )}
             </div>
           </>
         ) : (
@@ -349,19 +395,16 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* MODAL VISUALIZAR SENHA COM LINK CLICÁVEL */}
       {modalVer && (
         <div className="modal-screen" onClick={()=>setModalVer(null)}>
           <div className="modal-window view" onClick={e=>e.stopPropagation()}>
              <div className="modal-title"><h3>{'>'} DADO DESCRIPTOGRAFADO</h3><button onClick={()=>setModalVer(null)}>X</button></div>
             <div className="view-container">
               {modalVer.tipo === 'texto' && <pre className="code-view">{modalVer.conteudoReal}</pre>}
-              
               {modalVer.tipo === 'senha' && (
                 <div style={{display: 'flex', flexDirection: 'column', gap: '15px', padding: '10px'}}>
                   <div><label style={{color:'#666', fontSize:'0.8rem'}}>SERVIÇO:</label><h2 style={{color:'#00ff41', margin:0}}>{modalVer.nomeOriginal}</h2></div>
                   
-                  {/* --- MUDANÇA AQUI: URL CLICÁVEL --- */}
                   <div>
                     <label style={{color:'#666', fontSize:'0.8rem'}}>URL:</label>
                     <div style={{display: 'flex', alignItems: 'center', gap: '5px'}}>
@@ -377,7 +420,6 @@ export default function Dashboard() {
                       ) : <span style={{color: '#fff'}}>-</span>}
                     </div>
                   </div>
-                  {/* ---------------------------------- */}
 
                   <div><label style={{color:'#666', fontSize:'0.8rem'}}>USUÁRIO:</label><p style={{color:'#fff', margin:0}}>{modalVer.dadosSenha.user || '-'}</p></div>
                   <div style={{background: '#111', padding: '10px', border: '1px dashed #333', display: 'flex', justifyContent: 'space-between'}}>
@@ -386,7 +428,6 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
-              
               {modalVer.tipo === 'arquivo' && (
                  modalVer.tipoArquivo.includes('image') ? <img src={modalVer.url} className="img-view" /> : 
                  modalVer.tipoArquivo.includes('video') ? <video src={modalVer.url} controls className="img-view" /> :
