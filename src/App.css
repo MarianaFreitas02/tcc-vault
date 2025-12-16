@@ -1,6 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
 
-/* --- RESET BÁSICO --- */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -11,66 +10,58 @@
 body {
   background-color: #020202;
   color: #e0e0e0;
-  overflow: hidden; /* O scroll é gerenciado pelos containers internos */
+  overflow: hidden;
 }
 
-/* --- LAYOUT PRINCIPAL (FLEXBOX) --- */
+/* --- LAYOUT PRINCIPAL --- */
 .tactical-layout {
-  display: flex;            /* A Mágica: Coloca Sidebar e Main lado a lado */
-  height: 100vh;           /* Altura total da tela */
-  width: 100vw;            /* Largura total */
+  display: flex;
+  height: 100vh;
+  /* CORREÇÃO 1: Usa altura dinâmica para não cortar em notebooks/celulares */
+  height: 100dvh; 
+  width: 100vw;
   overflow: hidden;
   background-color: #020202;
 }
 
-/* --- BARRA LATERAL (SIDEBAR) --- */
+/* --- SIDEBAR --- */
 .tactical-sidebar {
-  width: 260px;            /* Largura padrão */
+  width: 260px;
   background-color: #050505;
   border-right: 1px solid #333;
   display: flex;
   flex-direction: column;
   padding: 20px;
-  flex-shrink: 0;          /* IMPEDE o sidebar de ser esmagado */
+  flex-shrink: 0;
   z-index: 10;
-  transition: width 0.3s ease; /* Animação suave ao redimensionar */
+  transition: width 0.3s ease;
+  overflow-y: auto; /* Permite rolar o menu se a tela for muito baixa */
 }
 
+/* --- HEADER E MARCA --- */
 .brand-box {
   display: flex;
   align-items: center;
   gap: 15px;
-  margin-bottom: 40px;
+  margin-bottom: 30px; /* Reduzi um pouco */
   padding-bottom: 20px;
   border-bottom: 1px solid #333;
+  flex-shrink: 0; /* Garante que o logo nunca suma */
 }
 
-.brand-text h1 {
-  font-size: 1.2rem;
-  color: #00ff41;
-  letter-spacing: 2px;
-  margin: 0;
-}
+.brand-text h1 { font-size: 1.2rem; color: #00ff41; letter-spacing: 2px; margin: 0; }
+.brand-text span { font-size: 0.6rem; color: #666; letter-spacing: 1px; }
 
-.brand-text span {
-  font-size: 0.6rem;
-  color: #666;
-  letter-spacing: 1px;
-}
-
+/* --- NAVEGAÇÃO --- */
 .nav-section {
-  margin-bottom: 30px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex: 1; /* Ocupa o espaço do meio */
+  overflow-y: auto; /* Permite scroll nos botões se precisar */
 }
 
-.nav-label {
-  font-size: 0.7rem;
-  color: #666;
-  margin-bottom: 10px;
-  letter-spacing: 1px;
-}
+.nav-label { font-size: 0.7rem; color: #666; margin-bottom: 5px; letter-spacing: 1px; }
 
 .nav-btn {
   background: none;
@@ -85,41 +76,27 @@ body {
   border-radius: 4px;
   transition: all 0.2s;
   font-size: 0.9rem;
-  white-space: nowrap; /* Impede que o texto quebre linha */
-  overflow: hidden;    /* Esconde texto se o botão for pequeno */
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.nav-btn:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.05);
-}
+.nav-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.05); }
+.nav-btn.active { color: #020202; background: #00ff41; font-weight: bold; box-shadow: 0 0 10px rgba(0, 255, 65, 0.4); }
 
-.nav-btn.active {
-  color: #020202;
-  background: #00ff41;
-  font-weight: bold;
-  box-shadow: 0 0 10px rgba(0, 255, 65, 0.4);
-}
-
+/* --- RODAPÉ DO SIDEBAR (ONDE ESTAVA O PROBLEMA) --- */
 .system-info {
-  margin-top: auto;
+  margin-top: 20px;
   border-top: 1px solid #333;
   padding-top: 20px;
+  flex-shrink: 0; /* CORREÇÃO 2: Impede que essa área seja esmagada */
 }
 
-.system-info p {
-  font-size: 0.75rem;
-  color: #666;
-  margin-bottom: 5px;
-}
-
-.status-ok {
-  color: #00ff41;
-}
+.system-info p { font-size: 0.75rem; color: #666; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status-ok { color: #00ff41; }
 
 .btn-logout {
   width: 100%;
-  margin-top: 15px;
+  margin-top: 10px;
   background: transparent;
   border: 1px solid #ff3333;
   color: #ff3333;
@@ -127,23 +104,22 @@ body {
   cursor: pointer;
   font-size: 0.8rem;
   transition: 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px; /* Espaço entre ícone e texto se houver */
 }
 
-.btn-logout:hover {
-  background: #ff3333;
-  color: #000;
-}
+.btn-logout:hover { background: #ff3333; color: #000; }
 
-/* --- ÁREA PRINCIPAL (MAIN) --- */
+/* --- ÁREA PRINCIPAL --- */
 .tactical-main {
-  flex: 1;                 /* Ocupa TODO o espaço restante */
+  flex: 1;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;        /* Scroll vertical apenas aqui */
+  overflow-y: auto;
   overflow-x: hidden;
   position: relative;
-  
-  /* Grid de Fundo Hacker */
   background-image: 
     linear-gradient(rgba(0, 255, 65, 0.03) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0, 255, 65, 0.03) 1px, transparent 1px);
@@ -161,12 +137,10 @@ body {
   position: sticky;
   top: 0;
   z-index: 5;
+  flex-shrink: 0;
 }
 
-.path-display {
-  color: #666;
-  font-size: 0.9rem;
-}
+.path-display { color: #666; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .btn-add {
   background: #00ff41;
@@ -181,335 +155,79 @@ body {
   box-shadow: 0 0 15px rgba(0, 255, 65, 0.2);
   white-space: nowrap;
 }
+.btn-add:hover { background: #fff; box-shadow: 0 0 20px rgba(255, 255, 255, 0.5); }
 
-.btn-add:hover {
-  background: #fff;
-  box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
-}
+/* --- GRID E MODAIS (Mesmo código anterior) --- */
+.data-grid { padding: 40px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+.data-card { background: rgba(5, 5, 5, 0.8); border: 1px solid #333; padding: 15px; border-radius: 4px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; justify-content: space-between; min-height: 120px; }
+.data-card:hover { border-color: #00ff41; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5); }
+.card-header { display: flex; justify-content: space-between; margin-bottom: 10px; color: #666; font-size: 0.7rem; }
+.card-body h3 { font-size: 0.9rem; color: #e0e0e0; word-break: break-word; }
+.card-footer { margin-top: 15px; display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: #666; }
+.security-tag { background: #111; border: 1px solid #333; padding: 2px 6px; border-radius: 2px; color: #00ff41; }
+.empty-terminal { grid-column: 1 / -1; height: 200px; display: flex; align-items: center; justify-content: center; color: #666; border: 1px dashed #333; }
 
-/* --- GRID DE ARQUIVOS --- */
-.data-grid {
-  padding: 40px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 20px;
-}
+.modal-screen { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 50; }
+.modal-window { background: #000; border: 1px solid #00ff41; width: 90%; max-width: 500px; padding: 0; box-shadow: 0 0 30px rgba(0, 255, 65, 0.2); }
+.modal-window.view { max-width: 800px; height: 80vh; display: flex; flex-direction: column; }
+.modal-title { background: #00ff41; color: #000; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
+.modal-title button { background: none; border: none; font-weight: bold; cursor: pointer; }
+.type-selector { display: flex; border-bottom: 1px solid #333; }
+.type-selector button { flex: 1; background: #050505; border: none; color: #666; padding: 15px; cursor: pointer; border-right: 1px solid #333; }
+.type-selector button.selected { background: #111; color: #00ff41; border-bottom: 2px solid #00ff41; }
+.form-group { padding: 20px 20px 0 20px; display: flex; flex-direction: column; gap: 10px; }
+.form-group input, .form-group textarea { background: #050505; border: 1px solid #333; padding: 10px; color: #fff; outline: none; }
+.form-group input:focus, .form-group textarea:focus { border-color: #00ff41; }
+.btn-execute { width: calc(100% - 40px); margin: 20px; background: #00ff41; border: none; padding: 12px; font-weight: bold; cursor: pointer; color: #000; }
+.view-container { flex: 1; padding: 20px; overflow: auto; display: flex; align-items: center; justify-content: center; background: #050505; }
+.code-view { width: 100%; white-space: pre-wrap; color: #00ff41; font-family: 'JetBrains Mono'; line-height: 1.5; }
+.img-view { max-width: 100%; max-height: 100%; border: 1px solid #333; }
+.link-download { color: #00ff41; text-decoration: none; border: 1px solid #00ff41; padding: 10px 20px; }
 
-.data-card {
-  background: rgba(5, 5, 5, 0.8);
-  border: 1px solid #333;
-  padding: 15px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  min-height: 120px;
-}
-
-.data-card:hover {
-  border-color: #00ff41;
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 10px;
-  color: #666;
-  font-size: 0.7rem;
-}
-
-.card-body h3 {
-  font-size: 0.9rem;
-  color: #e0e0e0;
-  word-break: break-word;
-}
-
-.card-footer {
-  margin-top: 15px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.7rem;
-  color: #666;
-}
-
-.security-tag {
-  background: #111;
-  border: 1px solid #333;
-  padding: 2px 6px;
-  border-radius: 2px;
-  color: #00ff41;
-}
-
-.empty-terminal {
-  grid-column: 1 / -1;
-  height: 200px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #666;
-  border: 1px dashed #333;
-}
-
-/* --- MODAL --- */
-.modal-screen {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(3px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 50;
-}
-
-.modal-window {
-  background: #000;
-  border: 1px solid #00ff41;
-  width: 90%;
-  max-width: 500px;
-  padding: 0;
-  box-shadow: 0 0 30px rgba(0, 255, 65, 0.2);
-}
-
-.modal-window.view {
-  max-width: 800px;
-  height: 80vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.modal-title {
-  background: #00ff41;
-  color: #000;
-  padding: 10px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: bold;
-}
-
-.modal-title button {
-  background: none;
-  border: none;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-.type-selector {
-  display: flex;
-  border-bottom: 1px solid #333;
-}
-
-.type-selector button {
-  flex: 1;
-  background: #050505;
-  border: none;
-  color: #666;
-  padding: 15px;
-  cursor: pointer;
-  border-right: 1px solid #333;
-}
-
-.type-selector button.selected {
-  background: #111;
-  color: #00ff41;
-  border-bottom: 2px solid #00ff41;
-}
-
-.form-group {
-  padding: 20px 20px 0 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.form-group input, .form-group textarea {
-  background: #050505;
-  border: 1px solid #333;
-  padding: 10px;
-  color: #fff;
-  outline: none;
-}
-
-.form-group input:focus, .form-group textarea:focus {
-  border-color: #00ff41;
-}
-
-.btn-execute {
-  width: calc(100% - 40px);
-  margin: 20px;
-  background: #00ff41;
-  border: none;
-  padding: 12px;
-  font-weight: bold;
-  cursor: pointer;
-  color: #000;
-}
-
-.view-container {
-  flex: 1;
-  padding: 20px;
-  overflow: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #050505;
-}
-
-.code-view {
-  width: 100%;
-  white-space: pre-wrap;
-  color: #00ff41;
-  font-family: 'JetBrains Mono';
-  line-height: 1.5;
-}
-
-.img-view {
-  max-width: 100%;
-  max-height: 100%;
-  border: 1px solid #333;
-}
-
-.link-download {
-  color: #00ff41;
-  text-decoration: none;
-  border: 1px solid #00ff41;
-  padding: 10px 20px;
-}
-
-/* --- TELA DE LOGIN --- */
-.login-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
-  width: 100vw;
-  background: radial-gradient(circle at center, #111 0%, #020202 100%);
-  background-image: 
-    linear-gradient(rgba(0, 255, 65, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 255, 65, 0.05) 1px, transparent 1px);
-  background-size: 50px 50px;
-}
-
-.login-box {
-  background: #000;
-  border: 1px solid #00ff41;
-  padding: 40px;
-  width: 100%;
-  max-width: 400px;
-  text-align: center;
-  box-shadow: 0 0 20px rgba(0, 255, 65, 0.1);
-  position: relative;
-}
-
-.auth-tabs {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin: 20px 0;
-}
-
-.auth-tabs button {
-  width: 40px;
-  height: 40px;
-  border: 1px solid #333;
-  background: #050505;
-  color: #666;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.auth-tabs button.active {
-  border-color: #00ff41;
-  color: #00ff41;
-  box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
-}
-
-.input-group {
-  text-align: left;
-  margin-bottom: 15px;
-}
-
-.input-group label {
-  display: block;
-  font-size: 0.7rem;
-  color: #00ff41;
-  margin-bottom: 5px;
-  letter-spacing: 1px;
-}
-
-.input-group input {
-  width: 100%;
-  background: #050505;
-  border: 1px solid #333;
-  padding: 12px;
-  color: #fff;
-  font-family: 'JetBrains Mono';
-  outline: none;
-  font-size: 1rem;
-}
-
-.input-group input:focus {
-  border-color: #00ff41;
-}
-
-.btn-action {
-  width: 100%;
-  background: #00ff41;
-  border: none;
-  padding: 12px;
-  color: #000;
-  font-weight: bold;
-  cursor: pointer;
-  letter-spacing: 1px;
-  margin-top: 10px;
-}
-
-.btn-action:hover {
-  background: #fff;
-}
+.login-wrapper { display: flex; align-items: center; justify-content: center; height: 100vh; width: 100vw; background: radial-gradient(circle at center, #111 0%, #020202 100%); background-image: linear-gradient(rgba(0, 255, 65, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 65, 0.05) 1px, transparent 1px); background-size: 50px 50px; }
+.login-box { background: #000; border: 1px solid #00ff41; padding: 40px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 0 20px rgba(0, 255, 65, 0.1); position: relative; }
+.auth-tabs { display: flex; justify-content: center; gap: 10px; margin: 20px 0; }
+.auth-tabs button { width: 40px; height: 40px; border: 1px solid #333; background: #050505; color: #666; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+.auth-tabs button.active { border-color: #00ff41; color: #00ff41; box-shadow: 0 0 10px rgba(0, 255, 65, 0.2); }
+.input-group { text-align: left; margin-bottom: 15px; }
+.input-group label { display: block; font-size: 0.7rem; color: #00ff41; margin-bottom: 5px; letter-spacing: 1px; }
+.input-group input { width: 100%; background: #050505; border: 1px solid #333; padding: 12px; color: #fff; font-family: 'JetBrains Mono'; outline: none; font-size: 1rem; }
+.input-group input:focus { border-color: #00ff41; }
+.btn-action { width: 100%; background: #00ff41; border: none; padding: 12px; color: #000; font-weight: bold; cursor: pointer; letter-spacing: 1px; margin-top: 10px; }
+.btn-action:hover { background: #fff; }
 
 /* =================================================================
-   RESPONSIVIDADE (MEDIA QUERIES) - A CORREÇÃO DO LAYOUT
+   RESPONSIVIDADE (MEDIA QUERIES) - CORREÇÕES DE SOBREPOSIÇÃO
    ================================================================= */
 
-/* Para Notebooks Pequenos e Tablets (ex: telas 1366x768 ou menores) */
+/* Notebooks Pequenos e Tablets */
 @media (max-width: 1024px) {
   
   .tactical-sidebar {
-    width: 80px;  /* Reduz drasticamente a largura */
+    width: 80px;  /* Largura reduzida */
     padding: 15px 5px;
-    align-items: center; /* Centraliza tudo */
+    align-items: center; 
   }
 
-  /* Esconde textos para ganhar espaço */
+  /* ESCONDE OS TEXTOS PARA CABER NO 80PX */
   .brand-text, 
   .nav-label, 
   .system-info p {
     display: none;
   }
 
-  /* Ajusta o logo */
   .brand-box {
     margin-bottom: 20px;
     justify-content: center;
     border-bottom: none;
   }
 
-  /* Faz os botões mostrarem apenas o ícone centralizado */
+  /* BOTÕES DO MENU: Só ícone */
   .nav-btn {
     justify-content: center;
     padding: 15px 0;
     width: 100%;
-    font-size: 0; /* Truque para esconder o texto */
+    font-size: 0; /* Esconde o texto [ RAIZ ] */
   }
   
   .nav-btn svg {
@@ -518,39 +236,57 @@ body {
     height: 24px;
   }
 
-  /* Ajusta o botão de sair/caveira */
+  /* CORREÇÃO 3: BOTÃO SAIR/DESCONECTAR */
   .system-info {
     width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
     border-top: none;
+    padding-bottom: 20px; /* Garante espaço no final */
   }
   
+  /* Arruma os botões do rodapé (Sair e Caveira) */
   .system-info div {
     flex-direction: column;
     gap: 10px;
+    width: 100%;
+    align-items: center;
   }
 
+  /* Botão Sair vira um ícone ou fica pequeno */
   .btn-logout {
-    font-size: 0.7rem;
+    font-size: 0; /* Esconde texto "[ SAIR ]" */
     padding: 10px;
+    width: 40px; /* Quadrado */
+    height: 40px;
     display: flex;
     justify-content: center;
+    align-items: center;
+    border-radius: 4px;
+  }
+  
+  /* Usa um pseudo-elemento para simular um ícone de porta se não tiver SVG */
+  .btn-logout::after {
+    content: '⏻'; /* Ícone de Power */
+    font-size: 1.2rem;
+    color: inherit;
   }
 
   .main-header {
     padding: 15px 20px;
   }
+  
+  .path-display {
+    font-size: 0.7rem;
+  }
 }
 
-/* Para Celulares (Telas muito pequenas) */
+/* Celulares */
 @media (max-width: 600px) {
-  /* No celular, o sidebar some ou vira menu hamburger (aqui sumimos por enquanto) */
   .tactical-sidebar {
     display: none; 
   }
-  
   .tactical-main {
     width: 100%;
   }
