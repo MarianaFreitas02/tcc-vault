@@ -6,7 +6,7 @@ export default function AIChatBox() {
   const [aberto, setAberto] = useState(false);
   const [input, setInput] = useState("");
   const [mensagens, setMensagens] = useState([
-    { autor: 'bot', texto: 'NEXUS SYSTEM v2.0 ONLINE. Como posso auxiliar, Agente?' }
+    { autor: 'bot', texto: 'NEXUS SYSTEM v2.0 ONLINE. Digite o nome de um diretório para saber sua função.' }
   ]);
   
   const messagesEndRef = useRef(null);
@@ -17,42 +17,56 @@ export default function AIChatBox() {
 
   useEffect(rolarParaBaixo, [mensagens]);
 
-  // --- CÉREBRO DO BOT (OFFLINE) ---
+  // --- CÉREBRO DO BOT (LÓGICA ATUALIZADA) ---
   const processarResposta = (pergunta) => {
     const p = pergunta.toLowerCase();
-    let resposta = "";
+    
+    // --- EXPLICAÇÕES DOS DIRETÓRIOS ---
+    if (p.includes('raiz')) {
+      return "📁 [ RAIZ ]: É o diretório mestre. Ele exibe TUDO o que está guardado no cofre (Textos, Mídia, Arquivos e Senhas) em uma única lista sem filtros.";
+    }
+    else if (p.includes('texto')) {
+      return "📄 [ TEXTOS ]: Área dedicada para notas seguras. Ideal para salvar códigos, chaves privadas, diários ou anotações rápidas. O conteúdo é criptografado como texto puro.";
+    }
+    else if (p.includes('arquivo')) {
+      return "📂 [ ARQUIVOS ]: Armazena documentos genéricos (PDF, DOCX, ZIP, EXE). Qualquer arquivo binário que não seja mídia ou texto deve ser salvo/buscado aqui.";
+    }
+    else if (p.includes('midia') || p.includes('mídia')) {
+      return "🎬 [ MÍDIA ]: Otimizado para arquivos audiovisuais. O sistema detecta automaticamente Imagens, Vídeos e Áudios e permite a visualização direta (Play/View) dentro do cofre.";
+    }
+    else if (p.includes('senha') && !p.includes('gerar')) {
+      // Diferencia "Senhas" (pasta) de "Gerar Senha" (ação)
+      return "🔑 [ SENHAS ]: Seu gerenciador de credenciais. Armazena URL, Usuário e Senha de forma estruturada. Possui botões para copiar rapidamente e link seguro para abrir o site.";
+    }
+    else if (p.includes('sistema') || p.includes('integridade')) {
+      return "🖥️ [ SISTEMA ]: Painel de Telemetria. Monitora a conexão com o banco, detecta ataques de força bruta (Brute Force) e contém o botão de AUTO-DESTRUIÇÃO.";
+    }
+    else if (p.includes('gerador') || (p.includes('gerar') && p.includes('senha'))) {
+      return "🔀 [ GERADOR ]: Utilitário de entropia. Cria senhas matematicamente fortes (até 64 caracteres) que podem ser salvas diretamente no diretório de Senhas.";
+    }
 
-    if (p.includes('ola') || p.includes('oi')) {
-      resposta = "Saudações. O sistema está operando com criptografia AES-256.";
+    // --- COMANDOS GERAIS ---
+    else if (p.includes('ola') || p.includes('oi')) {
+      return "Saudações, Agente. Digite o nome de uma pasta (ex: 'Midia') que eu explico o funcionamento.";
     } 
     else if (p.includes('ajuda') || p.includes('help')) {
-      resposta = "COMANDOS DISPONÍVEIS: \n- 'status': Ver integridade.\n- 'senha': Dicas de segurança.\n- 'limpar': Limpar chat.";
-    }
-    else if (p.includes('status') || p.includes('sistema')) {
-      resposta = "STATUS: Todos os serviços operacionais. Banco de dados conectado. Nenhuma intrusão detectada no momento.";
-    }
-    else if (p.includes('senha') || p.includes('gerar')) {
-      resposta = "Use a aba 'GERADOR' para criar chaves de alta entropia. Nunca compartilhe sua chave mestra.";
+      return "COMANDOS: Digite 'raiz', 'textos', 'midia', 'arquivos' ou 'senhas' para detalhes sobre cada seção.";
     }
     else if (p.includes('quem é você') || p.includes('quem e voce')) {
-      resposta = "Sou o Assistente Tático NEXUS, uma interface lógica para gerenciamento do cofre.";
+      return "Sou o Assistente Tático NEXUS, responsável pela orientação operacional deste dispositivo.";
     }
     else {
-      resposta = `Comando '${p}' não reconhecido. Digite 'ajuda' para ver as opções.`;
+      return `Comando '${p}' não reconhecido. Tente digitar o nome de um diretório.`;
     }
-
-    return resposta;
   };
 
   const enviarMensagem = (e) => {
     e.preventDefault();
     if (!input.trim()) return;
 
-    // Adiciona mensagem do usuário
     const novaMsgUser = { autor: 'user', texto: input };
     setMensagens(prev => [...prev, novaMsgUser]);
     
-    // Processa resposta do bot (simula delay de digitação)
     setTimeout(() => {
         if (input.toLowerCase() === 'limpar') {
             setMensagens([{ autor: 'bot', texto: 'Terminal limpo.' }]);
@@ -89,26 +103,24 @@ export default function AIChatBox() {
       border: '1px solid #00ff41', display: 'flex', flexDirection: 'column',
       zIndex: 1000, boxShadow: '0 0 20px rgba(0,255,65,0.2)'
     }}>
-      {/* CABEÇALHO */}
       <div style={{
         padding: '10px', borderBottom: '1px solid #00ff41', 
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         background: '#051a05'
       }}>
         <div style={{display: 'flex', alignItems: 'center', gap: '8px', color: '#00ff41', fontWeight: 'bold'}}>
-          <Terminal size={16} /> NEXUS_AI_V1
+          <Terminal size={16} /> NEXUS_AI_V2
         </div>
         <button onClick={() => setAberto(false)} style={{background: 'none', border: 'none', color: '#00ff41', cursor: 'pointer'}}>
           <X size={18} />
         </button>
       </div>
 
-      {/* ÁREA DE MENSAGENS */}
       <div style={{flex: 1, padding: '15px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px'}}>
         {mensagens.map((msg, index) => (
           <div key={index} style={{
             alignSelf: msg.autor === 'user' ? 'flex-end' : 'flex-start',
-            maxWidth: '85%',
+            maxWidth: '90%',
             background: msg.autor === 'user' ? '#003300' : '#111',
             color: msg.autor === 'user' ? '#fff' : '#00ff41',
             padding: '8px 12px',
@@ -116,7 +128,7 @@ export default function AIChatBox() {
             borderRadius: '4px',
             fontSize: '0.85rem',
             fontFamily: 'monospace',
-            whiteSpace: 'pre-line' // Permite quebra de linha com \n
+            whiteSpace: 'pre-line'
           }}>
             {msg.autor === 'bot' && <Cpu size={12} style={{marginRight: '5px', display: 'inline'}} />}
             {msg.texto}
@@ -125,7 +137,6 @@ export default function AIChatBox() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* INPUT */}
       <form onSubmit={enviarMensagem} style={{
         padding: '10px', borderTop: '1px solid #333', display: 'flex', gap: '10px'
       }}>
@@ -133,7 +144,7 @@ export default function AIChatBox() {
           type="text" 
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Digite um comando..."
+          placeholder="Digite o nome do diretório..."
           style={{
             flex: 1, background: '#000', border: 'none', color: '#fff', 
             outline: 'none', fontFamily: 'monospace'
