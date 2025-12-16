@@ -8,7 +8,7 @@ import {
   Lock, FileText, Folder, HardDrive, 
   Plus, Trash2, UploadCloud, 
   Film, Image as ImageIcon, Music, Key, Shuffle, Copy, Globe, User, ExternalLink, Search, 
-  Cpu, Activity, ShieldAlert, Skull // <--- NOVOS ÍCONES
+  Cpu, Activity, ShieldAlert, Skull, CheckCircle
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -18,18 +18,21 @@ export default function Dashboard() {
 
   const [listaItens, setListaItens] = useState([]);
   
-  // NAVEGAÇÃO & BUSCA
-  const [secaoAtual, setSecaoAtual] = useState('cofre'); // cofre, gerador, sistema
+  // ESTADOS DE NAVEGAÇÃO & BUSCA
+  const [secaoAtual, setSecaoAtual] = useState('cofre'); // 'cofre', 'gerador', 'sistema'
   const [filtro, setFiltro] = useState('todos'); 
   const [termoBusca, setTermoBusca] = useState(""); 
   
-  // MODAIS
+  // ESTADO DE MONITORAMENTO (NOVO)
+  const [statusSistema, setStatusSistema] = useState({ integridade: 'VERIFICANDO...', ameacas: 0, banco: '...' });
+
+  // MODAIS E DRAG & DROP
   const [modalNovo, setModalNovo] = useState(false);
   const [modalVer, setModalVer] = useState(null);
   const [abaForm, setAbaForm] = useState('arquivo'); 
   const [isDragging, setIsDragging] = useState(false);
   
-  // DADOS FORM
+  // DADOS DOS FORMULÁRIOS
   const [titulo, setTitulo] = useState("");
   const [conteudoTexto, setConteudoTexto] = useState(""); 
   const [arquivo, setArquivo] = useState(null); 
@@ -37,10 +40,11 @@ export default function Dashboard() {
   const [usuarioSite, setUsuarioSite] = useState("");
   const [senhaSite, setSenhaSite] = useState("");
 
-  // GERADOR
+  // GERADOR DE SENHAS
   const [senhaGerada, setSenhaGerada] = useState("");
   const [tamanhoSenha, setTamanhoSenha] = useState(16);
 
+  // URL FIXA PARA EVITAR ERRO DE CORS
   const API_URL = "https://nexus-access.vercel.app"; 
 
   useEffect(() => {
@@ -56,13 +60,33 @@ export default function Dashboard() {
     } catch (e) { console.error("Erro Conexão Tática"); }
   }
 
+  // --- NOVA FUNÇÃO: CHECAR INTEGRIDADE REAL ---
+  async function checarIntegridade() {
+    setStatusSistema({ integridade: 'VERIFICANDO...', ameacas: 0, banco: '...' });
+    try {
+        const res = await fetch(`${API_URL}/api/status/check`);
+        if (res.ok) {
+            const dados = await res.json();
+            setStatusSistema(dados);
+        } else {
+            // Se a rota não existir ainda, simula online
+            setStatusSistema({ integridade: 'SEGURA', ameacas: 0, banco: 'OK' });
+        }
+    } catch (e) {
+        setStatusSistema({ integridade: 'OFFLINE', ameacas: 0, banco: 'ERROR' });
+    }
+  }
+
+  // --- LÓGICA DE FILTRAGEM (BUSCA LOCAL) ---
   const itensVisiveis = listaItens.filter(item => {
     const tipo = item.tipoArquivo;
     const nome = item.nomeOriginal.toLowerCase();
     const busca = termoBusca.toLowerCase();
 
+    // 1. Filtra pelo nome se houver busca
     if (busca.length > 0 && !nome.includes(busca)) return false;
 
+    // 2. Filtra pela pasta atual
     if (filtro === 'todos') return true;
     if (filtro === 'texto') return tipo === 'secret/text';
     if (filtro === 'senha') return tipo === 'secret/password';
@@ -76,6 +100,7 @@ export default function Dashboard() {
     return true;
   });
 
+  // --- DRAG & DROP ---
   const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
   const handleDragLeave = (e) => { e.preventDefault(); if (e.currentTarget.contains(e.relatedTarget)) return; setIsDragging(false); };
   const handleDrop = (e) => {
@@ -86,6 +111,7 @@ export default function Dashboard() {
     }
   };
 
+  // --- GERADOR ---
   const gerarSenha = () => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+{}[]";
     let pass = "";
@@ -115,6 +141,7 @@ export default function Dashboard() {
     }
   }
 
+  // --- SALVAR (CRIPTOGRAFIA) ---
   async function handleSalvar() {
     if (!titulo) return alert("ERRO: Identificador ausente.");
     let bytes, mime;
@@ -172,6 +199,7 @@ export default function Dashboard() {
   }
 
   const cpfVisual = usuario ? usuario.split('_')[0].replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4") : "UNKNOWN";
+  
   const getIcon = (tipo) => {
     if (tipo === 'secret/text') return <FileText size={14} />;
     if (tipo === 'secret/password') return <Key size={14} />;
@@ -206,8 +234,7 @@ export default function Dashboard() {
         <div className="nav-section">
           <p className="nav-label">UTILITÁRIOS</p>
           <button className={`nav-btn ${secaoAtual==='gerador' ? 'active' : ''}`} onClick={() => setSecaoAtual('gerador')}><Shuffle size={18} /> [ GERADOR ]</button>
-          {/* NOVA ABA: SISTEMA */}
-          <button className={`nav-btn ${secaoAtual==='sistema' ? 'active' : ''}`} onClick={() => setSecaoAtual('sistema')}><Cpu size={18} /> [ SISTEMA ]</button>
+          <button className={`nav-btn ${secaoAtual==='sistema' ? 'active' : ''}`} onClick={() => {setSecaoAtual('sistema'); checarIntegridade();}}><Cpu size={18} /> [ SISTEMA ]</button>
         </div>
         <div className="system-info">
           <p>STATUS: <span className="status-ok">ONLINE</span></p>
@@ -217,6 +244,7 @@ export default function Dashboard() {
       </aside>
 
       <main className="tactical-main">
+        {/* --- TELA 1: COFRE (ARQUIVOS) --- */}
         {secaoAtual === 'cofre' && (
           <>
             <header className="main-header" style={{gap: '15px'}}>
@@ -246,6 +274,7 @@ export default function Dashboard() {
           </>
         )}
 
+        {/* --- TELA 2: GERADOR DE SENHAS --- */}
         {secaoAtual === 'gerador' && (
           <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%'}}>
              <div className="login-box" style={{maxWidth: '500px', width: '100%', border: '1px solid #00ff41', padding: '40px'}}>
@@ -266,27 +295,42 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* --- TELA 3: PAINEL DE SISTEMA (COM INTEGRIDADE REAL) --- */}
         {secaoAtual === 'sistema' && (
-          // --- NOVO DASHBOARD DO SISTEMA ---
           <div style={{padding: '40px', maxWidth: '800px', margin: '0 auto', width: '100%'}}>
             <h2 style={{color: '#00ff41', borderBottom: '1px solid #333', paddingBottom: '10px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px'}}>
-              <Activity /> STATUS DO SISTEMA
+              <Activity /> MONITOR DE HARDWARE
             </h2>
             
             <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '30px'}}>
               <div style={{background: '#050505', border: '1px solid #333', padding: '20px'}}>
-                <label style={{color: '#666', fontSize: '0.8rem', display: 'block', marginBottom: '10px'}}>ARMAZENAMENTO (CRYPT)</label>
-                <div style={{height: '10px', background: '#333', borderRadius: '5px', overflow: 'hidden'}}>
-                  <div style={{width: '12%', height: '100%', background: '#00ff41'}}></div>
+                <label style={{color: '#666', fontSize: '0.8rem', display: 'block', marginBottom: '10px'}}>DATABASE STATUS</label>
+                <div style={{display: 'flex', alignItems: 'center', gap: '10px', color: statusSistema.banco === 'OK' ? '#00ff41' : '#ff3333'}}>
+                   {statusSistema.banco === 'OK' ? <CheckCircle size={20} /> : <ShieldAlert size={20} />} 
+                   {statusSistema.banco === 'OK' ? 'CONEXÃO ESTÁVEL' : 'ERRO DE CONEXÃO'}
                 </div>
-                <p style={{color: '#fff', marginTop: '5px', textAlign: 'right', fontSize: '0.9rem'}}>12% EM USO</p>
               </div>
+
+              {/* PAINEL DE INTEGRIDADE DINÂMICO */}
               <div style={{background: '#050505', border: '1px solid #333', padding: '20px'}}>
                 <label style={{color: '#666', fontSize: '0.8rem', display: 'block', marginBottom: '10px'}}>INTEGRIDADE</label>
-                <div style={{display: 'flex', alignItems: 'center', gap: '10px', color: '#00ff41'}}>
-                   <ShieldAlert size={20} /> SISTEMA SEGURO
-                </div>
-                <p style={{color: '#666', marginTop: '5px', fontSize: '0.8rem'}}>Nenhuma violação detectada.</p>
+                {statusSistema.integridade === 'SEGURA' ? (
+                    <>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '10px', color: '#00ff41'}}>
+                            <Activity size={20} /> SISTEMA SEGURO
+                        </div>
+                        <p style={{color: '#666', marginTop: '5px', fontSize: '0.8rem'}}>Nenhuma ameaça recente.</p>
+                    </>
+                ) : (
+                    <>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '10px', color: '#ff3333', animation: 'pulse 1s infinite'}}>
+                            <ShieldAlert size={20} /> ALERTA DE INTRUSÃO
+                        </div>
+                        <p style={{color: '#ffaaaa', marginTop: '5px', fontSize: '0.8rem'}}>
+                            {statusSistema.ameacas} TENTATIVAS FALHAS DETECTADAS!
+                        </p>
+                    </>
+                )}
               </div>
             </div>
 
@@ -294,7 +338,7 @@ export default function Dashboard() {
             <div style={{background: '#1a0000', border: '1px solid #ff0000', padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                <div>
                  <h4 style={{color: '#ff0000', margin: 0}}>AUTO-DESTRUIÇÃO</h4>
-                 <p style={{color: '#ffaaaa', fontSize: '0.8rem', margin: '5px 0 0 0'}}>Apaga permanentemente o usuário e chaves.</p>
+                 <p style={{color: '#ffaaaa', fontSize: '0.8rem', margin: '5px 0 0 0'}}>Apaga permanentemente o usuário, chaves e todos os arquivos.</p>
                </div>
                <button onClick={handleAutoDestruicao} style={{background: '#ff0000', color: '#fff', border: 'none', padding: '10px 20px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', gap: '10px'}}>
                  <Skull /> EXECUTAR

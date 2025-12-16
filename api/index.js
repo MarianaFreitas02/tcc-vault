@@ -148,5 +148,36 @@ app.get('/api/arquivo/:id', async (req, res) => {
     }
 });
 
+// --- ROTA DE STATUS DO SISTEMA (INTEGRIDADE REAL) ---
+app.get('/api/status/check', async (req, res) => {
+    try {
+        await connectToDatabase();
+        
+        // 1. Checa conexão com Banco
+        const dbStatus = mongoose.connection.readyState === 1 ? 'OK' : 'ERROR';
+
+        // 2. Procura ataques de força bruta nos últimos 10 minutos
+        const dezMinutosAtras = new Date(Date.now() - 10 * 60 * 1000);
+        
+        // Conta logs que tenham "FAIL" ou "NEGADO" na ação/detalhe
+        const ameacas = await Log.countDocuments({
+            data: { $gte: dezMinutosAtras },
+            $or: [
+                { acao: { $regex: 'FAIL', $options: 'i' } },
+                { acao: { $regex: 'NEGADO', $options: 'i' } },
+                { detalhe: { $regex: 'Inválida', $options: 'i' } }
+            ]
+        });
+
+        res.json({
+            banco: dbStatus,
+            ameacasDetectadas: ameacas,
+            integridade: ameacas > 0 ? 'COMPROMETIDA' : 'SEGURA'
+        });
+
+    } catch (e) {
+        res.status(500).json({ erro: "Falha no check-up" });
+    }
+});
 // Export padrão
 export default app;
