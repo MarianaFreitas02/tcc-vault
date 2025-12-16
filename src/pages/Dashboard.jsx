@@ -239,7 +239,7 @@ export default function Dashboard() {
         <div className="system-info">
           <p>STATUS: <span className="status-ok">ONLINE</span></p>
           <p>AGENTE: {cpfVisual}</p>
-          <button onClick={() => navigate('/login')} className="btn-logout">[ SAIR ]</button>
+          <button onClick={() => navigate('/login')} className="btn-logout">[ DESCONECTAR ]</button>
         </div>
       </aside>
 
