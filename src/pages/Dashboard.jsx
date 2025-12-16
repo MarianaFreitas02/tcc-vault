@@ -6,7 +6,7 @@ import Logo from '../components/Logo';
 import '../App.css';
 import { 
   Lock, FileText, Folder, HardDrive, 
-  Plus, Terminal, Trash2, UploadCloud, 
+  Plus, Trash2, UploadCloud, 
   Film, Image as ImageIcon, Music, Key, Shuffle, Copy, Globe, User
 } from 'lucide-react';
 
@@ -18,30 +18,30 @@ export default function Dashboard() {
   const [listaItens, setListaItens] = useState([]);
   
   // NAVEGAÇÃO
-  const [secaoAtual, setSecaoAtual] = useState('cofre'); // 'cofre' ou 'gerador'
-  const [filtro, setFiltro] = useState('todos'); // todos, texto, arquivo, midia, senha
+  const [secaoAtual, setSecaoAtual] = useState('cofre'); 
+  const [filtro, setFiltro] = useState('todos'); 
   
   // MODAIS E DRAG & DROP
   const [modalNovo, setModalNovo] = useState(false);
   const [modalVer, setModalVer] = useState(null);
-  const [abaForm, setAbaForm] = useState('arquivo'); // arquivo, texto, senha
+  const [abaForm, setAbaForm] = useState('arquivo'); 
   const [isDragging, setIsDragging] = useState(false);
   
-  // DADOS DO FORMULÁRIO DE CRIAÇÃO
+  // DADOS DO FORMULÁRIO
   const [titulo, setTitulo] = useState("");
-  const [conteudoTexto, setConteudoTexto] = useState(""); // Para Texto
-  const [arquivo, setArquivo] = useState(null); // Para Arquivos/Midia
+  const [conteudoTexto, setConteudoTexto] = useState(""); 
+  const [arquivo, setArquivo] = useState(null); 
   
-  // ESTADOS PARA SENHA (NOVO)
+  // SENHA
   const [urlSite, setUrlSite] = useState("");
   const [usuarioSite, setUsuarioSite] = useState("");
   const [senhaSite, setSenhaSite] = useState("");
 
-  // ESTADOS DO GERADOR DE SENHA
+  // GERADOR
   const [senhaGerada, setSenhaGerada] = useState("");
   const [tamanhoSenha, setTamanhoSenha] = useState(16);
 
-  const API_URL = "https://tcc-vault.vercel.app"; // Lembre-se do .env se preferir
+  const API_URL = "https://tcc-vault.vercel.app"; 
 
   useEffect(() => {
     if (!chaveMestra) navigate('/login');
@@ -56,32 +56,21 @@ export default function Dashboard() {
     } catch (e) { console.error("Erro Conexão Tática"); }
   }
 
-  // --- LÓGICA DE FILTRAGEM INTELIGENTE ---
   const itensVisiveis = listaItens.filter(item => {
     const tipo = item.tipoArquivo;
-
     if (filtro === 'todos') return true;
-    
     if (filtro === 'texto') return tipo === 'secret/text';
-    
     if (filtro === 'senha') return tipo === 'secret/password';
-
-    if (filtro === 'midia') {
-      return tipo.startsWith('image/') || tipo.startsWith('video/') || tipo.startsWith('audio/');
-    }
-
+    if (filtro === 'midia') return tipo.startsWith('image/') || tipo.startsWith('video/') || tipo.startsWith('audio/');
     if (filtro === 'arquivo') {
-      // Arquivo é tudo que NÃO é texto, NÃO é senha e NÃO é mídia
       const isTexto = tipo === 'secret/text';
       const isSenha = tipo === 'secret/password';
       const isMidia = tipo.startsWith('image/') || tipo.startsWith('video/') || tipo.startsWith('audio/');
       return !isTexto && !isSenha && !isMidia;
     }
-
     return true;
   });
 
-  // --- DRAG & DROP ---
   const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
   const handleDragLeave = (e) => { 
     e.preventDefault(); 
@@ -101,19 +90,16 @@ export default function Dashboard() {
     }
   };
 
-  // --- GERADOR DE SENHAS ---
   const gerarSenha = () => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+{}[]";
     let pass = "";
-    for (let i = 0; i < tamanhoSenha; i++) {
-      pass += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
+    for (let i = 0; i < tamanhoSenha; i++) pass += chars.charAt(Math.floor(Math.random() * chars.length));
     setSenhaGerada(pass);
   };
 
   const copiarSenha = () => {
     navigator.clipboard.writeText(senhaGerada);
-    alert("Senha copiada para a área de transferência!");
+    alert("Copiado!");
   };
 
   const salvarSenhaGerada = () => {
@@ -124,12 +110,24 @@ export default function Dashboard() {
     setModalNovo(true);
   };
 
-  // --- CRUD ---
+  // --- NOVA FUNÇÃO: ABRE O MODAL JÁ FILTRADO ---
+  const handleAbrirNovo = () => {
+    // Se estou na pasta de TEXTO, já abre na aba TEXTO
+    if (filtro === 'texto') setAbaForm('texto');
+    // Se estou na pasta de SENHA, já abre na aba SENHA
+    else if (filtro === 'senha') setAbaForm('senha');
+    // Se estou em ARQUIVO ou MIDIA, abre em ARQUIVO (upload)
+    else if (filtro === 'arquivo' || filtro === 'midia') setAbaForm('arquivo');
+    // Se estou na RAIZ, padrao arquivo
+    else setAbaForm('arquivo');
+
+    setModalNovo(true);
+  };
+
   async function handleSalvar() {
     if (!titulo) return alert("ERRO: Identificador ausente.");
     let bytes, mime;
 
-    // Lógica para preparar os dados antes de criptografar
     if (abaForm === 'arquivo') {
       if (!arquivo) return alert("ERRO: Arquivo não selecionado.");
       bytes = await arquivo.arrayBuffer();
@@ -142,12 +140,7 @@ export default function Dashboard() {
     }
     else if (abaForm === 'senha') {
       if (!senhaSite) return alert("ERRO: Senha vazia.");
-      // Transforma o objeto JSON da senha em bytes para criptografar
-      const dadosSenha = JSON.stringify({
-        site: urlSite,
-        user: usuarioSite,
-        pass: senhaSite
-      });
+      const dadosSenha = JSON.stringify({ site: urlSite, user: usuarioSite, pass: senhaSite });
       bytes = new TextEncoder().encode(dadosSenha);
       mime = 'secret/password';
     }
@@ -167,7 +160,6 @@ export default function Dashboard() {
       })
     });
     
-    // Limpeza
     setModalNovo(false); setTitulo(""); setConteudoTexto(""); setArquivo(null); 
     setUrlSite(""); setUsuarioSite(""); setSenhaSite("");
     carregarDados();
@@ -175,12 +167,12 @@ export default function Dashboard() {
 
   async function handleExcluir(e, id) {
     e.stopPropagation();
-    const confirmar = window.confirm("Tem certeza que deseja DELETAR PERMANENTEMENTE?");
+    const confirmar = window.confirm("Deletar permanentemente?");
     if (!confirmar) return;
     try {
         const res = await fetch(`${API_URL}/api/arquivo/${id}`, { method: 'DELETE' });
         if (res.ok) setListaItens(listaItens.filter(item => item._id !== id));
-    } catch (e) { alert("Erro de conexão."); }
+    } catch (e) { alert("Erro conexão."); }
   }
 
   async function abrirItem(id) {
@@ -205,13 +197,12 @@ export default function Dashboard() {
         setModalVer({ ...item, url, tipo: 'arquivo' });
       }
     } catch (e) {
-      alert("FALHA DE SEGURANÇA: Chave inválida ou dados corrompidos.");
+      alert("FALHA DE SEGURANÇA: Chave inválida.");
     }
   }
 
   const cpfVisual = usuario ? usuario.split('_')[0].replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4") : "UNKNOWN";
 
-  // Ícone dinâmico do card
   const getIcon = (tipo) => {
     if (tipo === 'secret/text') return <FileText size={14} />;
     if (tipo === 'secret/password') return <Key size={14} />;
@@ -230,7 +221,7 @@ export default function Dashboard() {
           alignItems: 'center', justifyContent: 'center', pointerEvents: 'none'
         }}>
           <UploadCloud size={100} color="#00ff41" />
-          <h1 style={{color: '#00ff41'}}>DETECTADO ARQUIVO EXTERNO</h1>
+          <h1 style={{color: '#00ff41'}}>SOLTE PARA IMPORTAR</h1>
         </div>
       )}
 
@@ -280,8 +271,9 @@ export default function Dashboard() {
         {secaoAtual === 'cofre' ? (
           <>
             <header className="main-header">
-              <div className="path-display">/HOME/{cpfVisual}/{filtro.toUpperCase()}/</div>
-              <button className="btn-add" onClick={() => setModalNovo(true)}><Plus size={16} /> NOVA ENTRADA</button>
+              <div className="path-display">/VAULT/{filtro.toUpperCase()}/</div>
+              {/* USA A NOVA FUNÇÃO handleAbrirNovo */}
+              <button className="btn-add" onClick={handleAbrirNovo}><Plus size={16} /> NOVA ENTRADA</button>
             </header>
             <div className="data-grid">
               {itensVisiveis.map(item => (
@@ -301,26 +293,20 @@ export default function Dashboard() {
             </div>
           </>
         ) : (
-          // --- TELA DO GERADOR DE SENHA ---
           <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%'}}>
              <div className="login-box" style={{maxWidth: '500px', width: '100%', border: '1px solid #00ff41', padding: '40px'}}>
-                <h2 style={{color: '#00ff41', textAlign: 'center', marginBottom: '20px'}}>GERADOR DE CHAVES FORTES</h2>
-                
+                <h2 style={{color: '#00ff41', textAlign: 'center', marginBottom: '20px'}}>GERADOR DE CHAVES</h2>
                 <div style={{background: '#000', border: '1px solid #333', padding: '20px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                   <span style={{fontSize: '1.2rem', fontFamily: 'monospace', color: senhaGerada ? '#fff' : '#666'}}>
-                      {senhaGerada || "Clique em Gerar"}
-                   </span>
+                   <span style={{fontSize: '1.2rem', fontFamily: 'monospace', color: senhaGerada ? '#fff' : '#666'}}>{senhaGerada || "Clique em Gerar"}</span>
                    {senhaGerada && <button onClick={copiarSenha} style={{background:'none', border:'none', color: '#00ff41', cursor: 'pointer'}} title="Copiar"><Copy /></button>}
                 </div>
-
                 <div className="input-group">
                   <label>COMPLEXIDADE (Caracteres: {tamanhoSenha})</label>
                   <input type="range" min="8" max="64" value={tamanhoSenha} onChange={(e) => setTamanhoSenha(e.target.value)} style={{width: '100%', accentColor: '#00ff41'}} />
                 </div>
-
                 <div style={{display: 'flex', gap: '10px', marginTop: '20px'}}>
-                  <button className="btn-action" onClick={gerarSenha} style={{flex: 1}}><Shuffle size={16}/> GERAR NOVA</button>
-                  {senhaGerada && <button className="btn-action" onClick={salvarSenhaGerada} style={{flex: 1, background: '#333'}}><Key size={16}/> SALVAR NO COFRE</button>}
+                  <button className="btn-action" onClick={gerarSenha} style={{flex: 1}}><Shuffle size={16}/> GERAR</button>
+                  {senhaGerada && <button className="btn-action" onClick={salvarSenhaGerada} style={{flex: 1, background: '#333'}}><Key size={16}/> SALVAR</button>}
                 </div>
              </div>
           </div>
@@ -328,21 +314,28 @@ export default function Dashboard() {
       </main>
       <AIChatBox />
       
-      {/* MODAL NOVO REGISTRO */}
       {modalNovo && (
         <div className="modal-screen">
           <div className="modal-window">
             <div className="modal-title"><h3>{'>'} NOVA ENTRADA SEGURA</h3><button onClick={() => setModalNovo(false)}>X</button></div>
+            
+            {/* LÓGICA DE FILTRAGEM DOS BOTÕES DO MODAL */}
             <div className="type-selector">
-              <button className={abaForm==='arquivo' ? 'selected' : ''} onClick={()=>setAbaForm('arquivo')}>ARQUIVO</button>
-              <button className={abaForm==='texto' ? 'selected' : ''} onClick={()=>setAbaForm('texto')}>TEXTO</button>
-              <button className={abaForm==='senha' ? 'selected' : ''} onClick={()=>setAbaForm('senha')}>SENHA</button>
+              {(filtro === 'todos' || filtro === 'arquivo' || filtro === 'midia') && (
+                <button className={abaForm==='arquivo' ? 'selected' : ''} onClick={()=>setAbaForm('arquivo')}>ARQUIVO</button>
+              )}
+              {(filtro === 'todos' || filtro === 'texto') && (
+                <button className={abaForm==='texto' ? 'selected' : ''} onClick={()=>setAbaForm('texto')}>TEXTO</button>
+              )}
+              {(filtro === 'todos' || filtro === 'senha') && (
+                <button className={abaForm==='senha' ? 'selected' : ''} onClick={()=>setAbaForm('senha')}>SENHA</button>
+              )}
             </div>
             
-            <div className="form-group"><label>TÍTULO / SERVIÇO:</label><input value={titulo} onChange={e=>setTitulo(e.target.value)} autoFocus placeholder={abaForm === 'senha' ? 'Ex: Facebook, Email...' : 'Ex: Relatório Final'} /></div>
+            <div className="form-group"><label>TÍTULO:</label><input value={titulo} onChange={e=>setTitulo(e.target.value)} autoFocus /></div>
             
             {abaForm === 'arquivo' && (
-               <div className="form-group"><label>ARQUIVO:</label>
+               <div className="form-group"><label>FONTE:</label>
                {arquivo ? <div style={{color: '#00ff41', border: '1px solid #00ff41', padding: '10px'}}>{arquivo.name}</div> : <input type="file" onChange={e=>{setArquivo(e.target.files[0]); if(e.target.files[0]) setTitulo(e.target.files[0].name)}} />}
                </div>
             )}
@@ -351,25 +344,23 @@ export default function Dashboard() {
             )}
             {abaForm === 'senha' && (
                <>
-                 <div className="form-group"><label>URL / SITE:</label><div style={{display:'flex', alignItems:'center', borderBottom:'1px solid #333'}}><Globe size={16} color="#666"/><input value={urlSite} onChange={e=>setUrlSite(e.target.value)} placeholder="https://..." style={{border:'none'}}/></div></div>
-                 <div className="form-group"><label>USUÁRIO / EMAIL:</label><div style={{display:'flex', alignItems:'center', borderBottom:'1px solid #333'}}><User size={16} color="#666"/><input value={usuarioSite} onChange={e=>setUsuarioSite(e.target.value)} placeholder="usuario@email.com" style={{border:'none'}}/></div></div>
+                 <div className="form-group"><label>SITE:</label><div style={{display:'flex', alignItems:'center', borderBottom:'1px solid #333'}}><Globe size={16} color="#666"/><input value={urlSite} onChange={e=>setUrlSite(e.target.value)} placeholder="https://..." style={{border:'none'}}/></div></div>
+                 <div className="form-group"><label>USUÁRIO:</label><div style={{display:'flex', alignItems:'center', borderBottom:'1px solid #333'}}><User size={16} color="#666"/><input value={usuarioSite} onChange={e=>setUsuarioSite(e.target.value)} placeholder="Email/User" style={{border:'none'}}/></div></div>
                  <div className="form-group"><label>SENHA:</label><div style={{display:'flex', alignItems:'center', borderBottom:'1px solid #333'}}><Key size={16} color="#666"/><input value={senhaSite} onChange={e=>setSenhaSite(e.target.value)} placeholder="••••••••" style={{border:'none'}}/></div></div>
                </>
             )}
 
-            <button className="btn-execute" onClick={handleSalvar}>[ CRIPTOGRAFAR E SALVAR ]</button>
+            <button className="btn-execute" onClick={handleSalvar}>[ SALVAR ]</button>
           </div>
         </div>
       )}
 
-      {/* MODAL VISUALIZAR */}
       {modalVer && (
         <div className="modal-screen" onClick={()=>setModalVer(null)}>
           <div className="modal-window view" onClick={e=>e.stopPropagation()}>
              <div className="modal-title"><h3>{'>'} DADO DESCRIPTOGRAFADO</h3><button onClick={()=>setModalVer(null)}>X</button></div>
             <div className="view-container">
               {modalVer.tipo === 'texto' && <pre className="code-view">{modalVer.conteudoReal}</pre>}
-              
               {modalVer.tipo === 'senha' && (
                 <div style={{display: 'flex', flexDirection: 'column', gap: '15px', padding: '10px'}}>
                   <div><label style={{color:'#666', fontSize:'0.8rem'}}>SERVIÇO:</label><h2 style={{color:'#00ff41', margin:0}}>{modalVer.nomeOriginal}</h2></div>
@@ -381,11 +372,10 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
-              
               {modalVer.tipo === 'arquivo' && (
                  modalVer.tipoArquivo.includes('image') ? <img src={modalVer.url} className="img-view" /> : 
                  modalVer.tipoArquivo.includes('video') ? <video src={modalVer.url} controls className="img-view" /> :
-                 <a href={modalVer.url} download={modalVer.nomeOriginal} className="link-download">[ BAIXAR ARQUIVO ]</a>
+                 <a href={modalVer.url} download={modalVer.nomeOriginal} className="link-download">[ BAIXAR ]</a>
               )}
             </div>
           </div>
