@@ -7,7 +7,7 @@ import '../App.css';
 import { 
   Lock, FileText, Folder, HardDrive, 
   Plus, Trash2, UploadCloud, 
-  Film, Image as ImageIcon, Music, Key, Shuffle, Copy, Globe, User
+  Film, Image as ImageIcon, Music, Key, Shuffle, Copy, Globe, User, ExternalLink // <--- Adicionei ExternalLink
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -41,7 +41,8 @@ export default function Dashboard() {
   const [senhaGerada, setSenhaGerada] = useState("");
   const [tamanhoSenha, setTamanhoSenha] = useState(16);
 
-  const API_URL = "https://tcc-vault.vercel.app"; 
+  // Use a variável de ambiente se tiver, senão usa a string fixa
+  const API_URL = import.meta.env.VITE_API_URL || "https://tcc-vault.vercel.app"; 
 
   useEffect(() => {
     if (!chaveMestra) navigate('/login');
@@ -110,15 +111,10 @@ export default function Dashboard() {
     setModalNovo(true);
   };
 
-  // --- NOVA FUNÇÃO: ABRE O MODAL JÁ FILTRADO ---
   const handleAbrirNovo = () => {
-    // Se estou na pasta de TEXTO, já abre na aba TEXTO
     if (filtro === 'texto') setAbaForm('texto');
-    // Se estou na pasta de SENHA, já abre na aba SENHA
     else if (filtro === 'senha') setAbaForm('senha');
-    // Se estou em ARQUIVO ou MIDIA, abre em ARQUIVO (upload)
     else if (filtro === 'arquivo' || filtro === 'midia') setAbaForm('arquivo');
-    // Se estou na RAIZ, padrao arquivo
     else setAbaForm('arquivo');
 
     setModalNovo(true);
@@ -272,7 +268,6 @@ export default function Dashboard() {
           <>
             <header className="main-header">
               <div className="path-display">/VAULT/{filtro.toUpperCase()}/</div>
-              {/* USA A NOVA FUNÇÃO handleAbrirNovo */}
               <button className="btn-add" onClick={handleAbrirNovo}><Plus size={16} /> NOVA ENTRADA</button>
             </header>
             <div className="data-grid">
@@ -319,7 +314,6 @@ export default function Dashboard() {
           <div className="modal-window">
             <div className="modal-title"><h3>{'>'} NOVA ENTRADA SEGURA</h3><button onClick={() => setModalNovo(false)}>X</button></div>
             
-            {/* LÓGICA DE FILTRAGEM DOS BOTÕES DO MODAL */}
             <div className="type-selector">
               {(filtro === 'todos' || filtro === 'arquivo' || filtro === 'midia') && (
                 <button className={abaForm==='arquivo' ? 'selected' : ''} onClick={()=>setAbaForm('arquivo')}>ARQUIVO</button>
@@ -355,16 +349,36 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* MODAL VISUALIZAR SENHA COM LINK CLICÁVEL */}
       {modalVer && (
         <div className="modal-screen" onClick={()=>setModalVer(null)}>
           <div className="modal-window view" onClick={e=>e.stopPropagation()}>
              <div className="modal-title"><h3>{'>'} DADO DESCRIPTOGRAFADO</h3><button onClick={()=>setModalVer(null)}>X</button></div>
             <div className="view-container">
               {modalVer.tipo === 'texto' && <pre className="code-view">{modalVer.conteudoReal}</pre>}
+              
               {modalVer.tipo === 'senha' && (
                 <div style={{display: 'flex', flexDirection: 'column', gap: '15px', padding: '10px'}}>
                   <div><label style={{color:'#666', fontSize:'0.8rem'}}>SERVIÇO:</label><h2 style={{color:'#00ff41', margin:0}}>{modalVer.nomeOriginal}</h2></div>
-                  <div><label style={{color:'#666', fontSize:'0.8rem'}}>URL:</label><p style={{color:'#fff', margin:0}}>{modalVer.dadosSenha.site || '-'}</p></div>
+                  
+                  {/* --- MUDANÇA AQUI: URL CLICÁVEL --- */}
+                  <div>
+                    <label style={{color:'#666', fontSize:'0.8rem'}}>URL:</label>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '5px'}}>
+                      {modalVer.dadosSenha.site ? (
+                        <a 
+                          href={modalVer.dadosSenha.site.startsWith('http') ? modalVer.dadosSenha.site : `https://${modalVer.dadosSenha.site}`} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          style={{color:'#00ff41', textDecoration: 'underline', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px'}}
+                        >
+                          {modalVer.dadosSenha.site} <ExternalLink size={12}/>
+                        </a>
+                      ) : <span style={{color: '#fff'}}>-</span>}
+                    </div>
+                  </div>
+                  {/* ---------------------------------- */}
+
                   <div><label style={{color:'#666', fontSize:'0.8rem'}}>USUÁRIO:</label><p style={{color:'#fff', margin:0}}>{modalVer.dadosSenha.user || '-'}</p></div>
                   <div style={{background: '#111', padding: '10px', border: '1px dashed #333', display: 'flex', justifyContent: 'space-between'}}>
                     <span style={{fontFamily: 'monospace', fontSize: '1.2rem'}}>{modalVer.dadosSenha.pass}</span>
@@ -372,6 +386,7 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
+              
               {modalVer.tipo === 'arquivo' && (
                  modalVer.tipoArquivo.includes('image') ? <img src={modalVer.url} className="img-view" /> : 
                  modalVer.tipoArquivo.includes('video') ? <video src={modalVer.url} controls className="img-view" /> :
