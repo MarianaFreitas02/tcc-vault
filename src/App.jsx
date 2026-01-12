@@ -2,9 +2,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Cadastro from './pages/Cadastro';
-import AdminDashboard from './pages/AdminDashboard'; // Importação do Painel Admin
+import AdminDashboard from './pages/AdminDashboard';
 
-// Componente simples para proteger rotas (Opcional, mas recomendado)
+// Componente simples para proteger rotas
 const RotaPrivada = ({ children }) => {
   const token = localStorage.getItem('token');
   return token ? children : <Navigate to="/login" />;
