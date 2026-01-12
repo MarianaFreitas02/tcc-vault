@@ -1,85 +1,316 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom'; // Importante: useNavigate
-import { derivarChaveMestra, gerarHashDeAutenticacao } from '../crypto'; // Sua criptografia
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { derivarChaveMestra, gerarHashDeAutenticacao } from '../crypto';
+import PatternLock from '../components/PatternLock';
+import Logo from '../components/Logo';
+import '../App.css';
+import { Hash, Type, Grid, User, Eye, EyeOff } from 'lucide-react';
 
+// --- COMPONENTE DE LOADING TÁTICO (MATRIX STYLE) ---
+function LoadingScreen({ onComplete }) {
+  const [progress, setProgress] = useState(0);
+  const [msg, setMsg] = useState("INICIANDO PROTOCOLO...");
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setProgress((old) => {
+        const increment = Math.floor(Math.random() * 15) + 1; 
+        const newProgress = old + increment;
+
+        if (newProgress > 30 && newProgress < 50) setMsg("VERIFICANDO INTEGRIDADE...");
+        if (newProgress > 50 && newProgress < 80) setMsg("DESCRIPTOGRAFANDO COFRE...");
+        if (newProgress > 80 && newProgress < 99) setMsg("LIBERANDO ACESSO...");
+
+        if (newProgress >= 100) {
+          clearInterval(interval);
+          setMsg("ACESSO AUTORIZADO");
+          setTimeout(onComplete, 800); 
+          return 100;
+        }
+        return newProgress;
+      });
+    }, 150); 
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: '#020202', zIndex: 9999,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      fontFamily: "'Courier New', monospace", color: '#00ff41'
+    }}>
+      <div style={{ marginBottom: '40px', transform: 'scale(1.5)' }}>
+        <Logo size={100} />
+      </div>
+      <h1 style={{ 
+        fontSize: '5rem', margin: '0', 
+        textShadow: '0 0 20px rgba(0, 255, 65, 0.5)' 
+      }}>
+        {progress}%
+      </h1>
+      <div style={{ 
+        width: '300px', height: '4px', background: '#111', 
+        marginTop: '20px', borderRadius: '2px', overflow: 'hidden' 
+      }}>
+        <div style={{ 
+          width: `${progress}%`, height: '100%', 
+          background: '#00ff41', 
+          boxShadow: '0 0 10px #00ff41',
+          transition: 'width 0.2s linear' 
+        }} />
+      </div>
+      <p style={{ 
+        marginTop: '20px', letterSpacing: '3px', fontSize: '0.9rem', 
+        opacity: 0.8, textTransform: 'uppercase' 
+      }}>
+        {msg}
+      </p>
+    </div>
+  );
+}
+
+// --- COMPONENTE PRINCIPAL ---
 export default function Login() {
-  // --- ESTADOS ---
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [erro, setErro] = useState('');
-  const [loading, setLoading] = useState(false);
-  
-  // --- NAVEGAÇÃO ---
+  // 1. Definições Iniciais
   const navigate = useNavigate();
+  const API_URL = ""; // Vazio para usar Proxy do Vite (ou coloque a URL completa se precisar)
 
-  // --- FUNÇÃO DE LOGIN (Lógica do TCC) ---
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setErro('');
-    setLoading(true);
+  // 2. Estados
+  const [metodo, setMetodo] = useState('cpf'); 
+  const [identificacao, setIdentificacao] = useState("");
+  const [segredo, setSegredo] = useState("");
+  const [status, setStatus] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [dadosLoginSucesso, setDadosLoginSucesso] = useState(null); 
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+
+  // 3. Funções Auxiliares
+  const trocarMetodo = (m) => {
+    setMetodo(m);
+    setStatus("");
+    setSegredo("");
+    setMostrarSenha(false);
+  };
+
+  const handleCpfChange = (e) => {
+    let v = e.target.value.replace(/\D/g, "");
+    if (v.length > 11) v = v.slice(0, 11);
+    v = v.replace(/(\d{3})(\d)/, "$1.$2");
+    v = v.replace(/(\d{3})(\d)/, "$1.$2");
+    v = v.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+    setIdentificacao(v);
+  };
+
+  const irParaCadastro = () => {
+    let metodoDestino = 'senha';
+    if (metodo === 'pin') metodoDestino = 'pin';
+    if (metodo === 'frase') metodoDestino = 'frase';
+    if (metodo === 'pattern') metodoDestino = 'pattern';
+    navigate('/cadastro', { state: { metodoInicial: metodoDestino } });
+  };
+
+  const finalizarLogin = () => {
+    // Só navega DEPOIS da animação de loading terminar
+    navigate('/dashboard', { state: dadosLoginSucesso });
+  };
+
+  // 4. Lógica de Login (TCC)
+  async function handleLogin(segredoFinal = segredo) {
+    if (!identificacao) return setStatus("⚠️ Identificação necessária.");
+    if (!segredoFinal) return setStatus("⚠️ Senha/Padrão vazio.");
+    
+    setStatus("⏳ PROCESSANDO...");
 
     try {
-      // 1. Busca o Sal (Salt) do usuário no Banco
-      const resSalt = await fetch(`/api/auth/salt/${username}`);
+      const cpfReal = identificacao.replace(/\D/g, "");
       
-      if (!resSalt.ok) {
-        if (resSalt.status === 404) throw new Error('Usuário não encontrado');
-        throw new Error('Erro de conexão com o servidor');
+      let usernameComSufixo = cpfReal;
+      if (metodo === 'pin') usernameComSufixo += "_pin";
+      if (metodo === 'frase') usernameComSufixo += "_frase";
+      if (metodo === 'pattern') usernameComSufixo += "_pattern";
+
+      // Passo 1: Busca o SALT
+      const respSalt = await fetch(`${API_URL}/api/auth/salt/${usernameComSufixo}`);
+      
+      if (!respSalt.ok) {
+        return setStatus(`❌ Usuário ou método não encontrado.`);
       }
+      
+      const { salt } = await respSalt.json();
 
-      const { salt } = await resSalt.json();
-
-      // 2. Criptografia Zero-Knowledge (Front-end)
-      // O navegador calcula a chave e o hash. A senha nunca sai daqui limpa.
-      const { key } = await derivarChaveMestra(password, salt);
+      // Passo 2: Derivação de Chaves (Zero Knowledge)
+      const { key } = await derivarChaveMestra(segredoFinal, salt);
       const authHash = await gerarHashDeAutenticacao(key);
 
-      // 3. Tenta Logar enviando apenas o Hash
-      const resLogin = await fetch('/api/auth/login', {
+      // Passo 3: Autenticação
+      const resposta = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, authHash })
+        body: JSON.stringify({ username: usernameComSufixo, authHash })
       });
 
-      const data = await resLogin.json();
+      const data = await resposta.json();
 
-      if (!resLogin.ok) {
-        // Se for erro 429 (Bloqueio do SIEM), mostra a mensagem de segurança
-        throw new Error(data.erro || 'Falha no login');
+      if (resposta.ok) {
+        // Sucesso! Salva Token e inicia animação
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('usuario', usernameComSufixo);
+        
+        setDadosLoginSucesso({ chaveMestra: key, usuario: usernameComSufixo });
+        setIsLoading(true); // Dispara o LoadingScreen
+      } else {
+        setStatus(data.erro || "⛔ NEGADO: Credenciais Inválidas.");
       }
+    } catch (error) {
+      console.error(error);
+      setStatus("Erro de Conexão com o Servidor.");
+    }
+  }
 
-      // 4. SUCESSO! Salva o token e redireciona
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('usuario', username);
-      
-      // REDIRECIONA PARA O DASHBOARD
-      navigate('/dashboard'); 
+  // 5. Renderização dos Inputs Específicos
+  const renderInputSegredo = () => {
+    const olhoStyle = {
+      position: 'absolute', right: '10px', top: '38px', 
+      background: 'none', border: 'none', color: '#666', cursor: 'pointer', zIndex: 10
+    };
 
-    } catch (err) {
-      console.error(err);
-      setErro(err.message);
-    } finally {
-      setLoading(false);
+    switch (metodo) {
+      case 'cpf': // Senha Padrão
+        return (
+          <div className="input-group" style={{position: 'relative'}}>
+            <label>SENHA DE ACESSO</label>
+            <input 
+              type={mostrarSenha ? "text" : "password"} 
+              placeholder="••••••••" 
+              value={segredo} 
+              onChange={e => setSegredo(e.target.value)} 
+            />
+            <button type="button" onClick={() => setMostrarSenha(!mostrarSenha)} style={olhoStyle}>
+              {mostrarSenha ? <EyeOff size={16}/> : <Eye size={16}/>}
+            </button>
+          </div>
+        );
+      case 'pin':
+        return (
+          <div className="input-group" style={{position: 'relative'}}>
+            <label>PIN DE SEGURANÇA</label>
+            <input 
+              type={mostrarSenha ? "tel" : "password"} 
+              maxLength="8" 
+              placeholder="0000" 
+              value={segredo} 
+              onChange={e => setSegredo(e.target.value.replace(/\D/g,''))} 
+              style={{ fontSize: '1.5rem', letterSpacing: '10px', textAlign: 'center' }} 
+            />
+            <button type="button" onClick={() => setMostrarSenha(!mostrarSenha)} style={olhoStyle}>
+              {mostrarSenha ? <EyeOff size={16}/> : <Eye size={16}/>}
+            </button>
+          </div>
+        );
+      case 'frase':
+        return (
+          <div className="input-group" style={{position: 'relative'}}>
+            <label>FRASE DE SEGURANÇA</label>
+            <input 
+              type={mostrarSenha ? "text" : "password"} 
+              placeholder="Ex: cavalo bateria correto" 
+              value={segredo} 
+              onChange={e => setSegredo(e.target.value)} 
+              style={{ paddingRight: '40px' }} 
+            />
+            <button type="button" onClick={() => setMostrarSenha(!mostrarSenha)} style={olhoStyle}>
+              {mostrarSenha ? <EyeOff size={16}/> : <Eye size={16}/>}
+            </button>
+          </div>
+        );
+      case 'pattern':
+        return (
+          <div className="input-group" style={{alignItems: 'center'}}>
+            <label style={{marginBottom: '15px'}}>PADRÃO DE DESBLOQUEIO</label>
+            <PatternLock onComplete={(padrao) => handleLogin(padrao)} />
+          </div>
+        );
+      default: return null;
     }
   };
 
-  // ---------------------------------------------------------
-  // MANTENHA O SEU "return (...)" EXATAMENTE COMO ESTAVA ABAIXO
-  // NÃO APAGUE O SEU HTML/LAYOUT
-  // ---------------------------------------------------------
   return (
-    // ... aqui começa o seu layout original ...
-    // Certifique-se apenas que o seu <form> tem: onSubmit={handleLogin}
-    // E os inputs têm: value={username} e value={password}
-    
-    <div className="login-container"> 
-       {/* Cole o seu layout original aqui se ele sumiu, 
-           ou apenas mantenha o que você já tinha no arquivo */}
-       
-       {/* Exemplo genérico caso precise recuperar: */}
-       <form onSubmit={handleLogin}>
-          {/* Seus inputs e botões originais */}
-       </form>
+    <div className="login-wrapper">
+      {isLoading && <LoadingScreen onComplete={finalizarLogin} />}
+
+      <div className="login-box" style={{maxWidth: '500px'}}>
+        <div style={{marginBottom: '20px', textAlign: 'center'}}>
+          <Logo size={60} />
+          <h1 style={{fontSize: '1.5rem', marginTop: '10px', color: '#00ff41'}}>NEXUS ACCESS</h1>
+          <p style={{letterSpacing: '2px', fontSize: '0.8rem', color: '#666'}}>SELECIONE O MÉTODO DE AUTENTICAÇÃO</p>
+        </div>
+
+        {/* --- ABAS DE NAVEGAÇÃO --- */}
+        <div className="auth-tabs" style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '20px' }}>
+          <BotaoAba ativo={metodo === 'cpf'} onClick={() => trocarMetodo('cpf')} icon={<User size={20}/>} />
+          <BotaoAba ativo={metodo === 'pin'} onClick={() => trocarMetodo('pin')} icon={<Hash size={20}/>} />
+          <BotaoAba ativo={metodo === 'frase'} onClick={() => trocarMetodo('frase')} icon={<Type size={20}/>} />
+          <BotaoAba ativo={metodo === 'pattern'} onClick={() => trocarMetodo('pattern')} icon={<Grid size={20}/>} />
+        </div>
+
+        <div className="input-group">
+          <label>IDENTIFICAÇÃO (CPF)</label>
+          <input 
+            type="text" 
+            placeholder="000.000.000-00" 
+            value={identificacao} 
+            onChange={handleCpfChange} 
+            maxLength={14} 
+            style={{fontWeight: 'bold', fontFamily: 'monospace'}} 
+          />
+        </div>
+
+        {renderInputSegredo()}
+
+        {metodo !== 'pattern' && (
+          <button className="btn-action" style={{marginTop: '20px'}} onClick={() => handleLogin()}>
+            [ AUTENTICAR ]
+          </button>
+        )}
+
+        <p style={{
+          marginTop: '20px', 
+          color: status.includes('❌') || status.includes('⛔') ? '#ff3333' : '#00ff41', 
+          minHeight: '20px', fontSize: '0.8rem', textAlign: 'center'
+        }}>
+          {status}
+        </p>
+        
+        <div style={{marginTop: '20px', borderTop: '1px solid #333', paddingTop: '15px', textAlign: 'center'}}>
+          <button onClick={irParaCadastro} style={{
+            background: 'none', border: 'none', cursor: 'pointer', 
+            fontFamily: 'inherit', fontSize: '0.8rem', color: '#666', textDecoration: 'underline'
+          }}>
+            SOLICITAR CREDENCIAL (MODO {metodo.toUpperCase()})
+          </button>
+        </div>
+      </div>
     </div>
   );
+}
+
+// Componente simples para os botões das abas ficarem estilosos
+function BotaoAba({ ativo, onClick, icon }) {
+  return (
+    <button 
+      onClick={onClick}
+      style={{
+        background: ativo ? 'rgba(0, 255, 65, 0.1)' : 'transparent',
+        border: ativo ? '1px solid #00ff41' : '1px solid #333',
+        color: ativo ? '#00ff41' : '#666',
+        padding: '10px',
+        borderRadius: '6px',
+        cursor: 'pointer',
+        transition: 'all 0.3s'
+      }}
+    >
+      {icon}
+    </button>
+  )
 }
