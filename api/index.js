@@ -7,10 +7,11 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-// STRING DE CONEXÃO
+// ==========================================
+// 🔌 CONEXÃO BANCO DE DADOS
+// ==========================================
 const URI_DO_BANCO = "mongodb+srv://admin:tcc123@cluster0.2qo05lt.mongodb.net/?appName=Cluster0";
 
-// --- CONEXÃO MONGO OTIMIZADA ---
 let cachedDb = null;
 
 async function connectToDatabase() {
@@ -32,13 +33,18 @@ async function connectToDatabase() {
   }
 }
 
-// --- MODELOS ---
+// ==========================================
+// 📚 MODELOS (DATABASE SCHEMAS)
+// ==========================================
+
+// 1. Usuário (Autenticação)
 const Usuario = mongoose.models.Usuario || mongoose.model('Usuario', new mongoose.Schema({
     username: { type: String, unique: true, required: true },
     salt: String,
     authHash: String
 }));
 
+// 2. Arquivos (Cofre)
 const Arquivo = mongoose.models.Arquivo || mongoose.model('Arquivo', new mongoose.Schema({
     dono: String,
     salt: String,
@@ -49,14 +55,49 @@ const Arquivo = mongoose.models.Arquivo || mongoose.model('Arquivo', new mongoos
     dataUpload: { type: Date, default: Date.now }
 }));
 
-// --- ROTA DE DEBUG ---
-app.get('/api/debug', (req, res) => res.json({ status: "Online", routes: "Auth + Arquivos" }));
+// 3. Logs de Segurança (SIEM / Auditoria)
+const SecurityLog = mongoose.models.SecurityLog || mongoose.model('SecurityLog', new mongoose.Schema({
+    ip: String,
+    acao: String, // ex: "LOGIN_FALHA", "BLOQUEIO_ATIVO", "LOGIN_SUCESSO"
+    usernameTentado: String,
+    userAgent: String,
+    data: { type: Date, default: Date.now, expires: 86400 } // Auto-delete após 24h
+}));
 
 // ==========================================
-// 🔐 ROTAS DE AUTENTICAÇÃO
+// 🛡️ FUNÇÕES DE SEGURANÇA (MIDDLEWARES)
 // ==========================================
 
-// REGISTRO
+// Verifica se um IP está abusando (Rate Limiting via Banco)
+async function verificarAmeaca(ip) {
+    // Janela de tempo: 15 minutos
+    const tempoLimite = new Date(Date.now() - 15 * 60 * 1000);
+    
+    // Conta quantas falhas esse IP teve nos últimos 15 min
+    const falhas = await SecurityLog.countDocuments({
+        ip: ip,
+        acao: "LOGIN_FALHA",
+        data: { $gte: tempoLimite }
+    });
+
+    // SE TIVER MAIS DE 5 FALHAS -> É ATAQUE
+    if (falhas >= 5) {
+        return true; // Bloquear
+    }
+    return false; // Liberar
+}
+
+// ==========================================
+// 🚦 ROTAS DA API
+// ==========================================
+
+// Rota de Teste Simples
+app.get('/api/debug', (req, res) => res.json({ status: "Online", routes: "Auth + Arquivos + SIEM" }));
+
+
+// --- AUTENTICAÇÃO ---
+
+// 1. REGISTRO
 app.post('/api/auth/register', async (req, res) => {
     try {
         await connectToDatabase();
@@ -77,7 +118,7 @@ app.post('/api/auth/register', async (req, res) => {
     }
 });
 
-// BUSCAR SALT
+// 2. BUSCAR SALT (Para o Front gerar o Hash)
 app.get('/api/auth/salt/:username', async (req, res) => {
     try {
         await connectToDatabase();
@@ -90,31 +131,64 @@ app.get('/api/auth/salt/:username', async (req, res) => {
     }
 });
 
-// LOGIN
+// 3. LOGIN BLINDADO (Com Proteção contra Força Bruta)
 app.post('/api/auth/login', async (req, res) => {
     try {
         await connectToDatabase();
         const { username, authHash } = req.body;
+        
+        // Pega IP (compatível com Vercel e Localhost)
+        const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+        // 🚨 CHECAGEM DE SIEM: O IP está bloqueado?
+        const isBloqueado = await verificarAmeaca(ip);
+        
+        if (isBloqueado) {
+            await SecurityLog.create({ 
+                ip, 
+                acao: "BLOQUEIO_ATIVO", 
+                usernameTentado: username,
+                userAgent: req.headers['user-agent'] 
+            });
+            
+            return res.status(429).json({ 
+                erro: "⛔ Muitas tentativas falhas. Seu IP foi temporariamente bloqueado por segurança." 
+            });
+        }
+
+        // Tenta Login
         const usuario = await Usuario.findOne({ username });
 
+        // Se falhar (Usuário não existe OU Senha errada)
         if (!usuario || usuario.authHash !== authHash) {
+            // GRAVA O INCIDENTE
+            await SecurityLog.create({ 
+                ip, 
+                acao: "LOGIN_FALHA", 
+                usernameTentado: username, 
+                userAgent: req.headers['user-agent'] 
+            });
+
             return res.status(401).json({ erro: "Credenciais inválidas" });
         }
+
+        // SUCESSO
+        await SecurityLog.create({ ip, acao: "LOGIN_SUCESSO", usernameTentado: username });
         res.json({ mensagem: "OK", token: "sessao_valida" });
+
     } catch (erro) {
+        console.error("Erro Login:", erro);
         res.status(500).json({ erro: erro.message });
     }
 });
 
-// ==========================================
-// 📂 ROTAS DE ARQUIVOS (O QUE ESTAVA FALTANDO)
-// ==========================================
 
-// SALVAR ARQUIVO
+// --- ARQUIVOS (COFRE) ---
+
+// 4. SALVAR ARQUIVO
 app.post('/api/salvar', async (req, res) => {
     try {
         await connectToDatabase();
-        // Cria e salva o arquivo no banco
         const novoArquivo = new Arquivo(req.body);
         await novoArquivo.save();
         res.json({ mensagem: "Arquivo criptografado e salvo com sucesso!" });
@@ -124,11 +198,10 @@ app.post('/api/salvar', async (req, res) => {
     }
 });
 
-// LISTAR ARQUIVOS (DASHBOARD)
+// 5. LISTAR ARQUIVOS
 app.get('/api/meus-arquivos/:username', async (req, res) => {
     try {
         await connectToDatabase();
-        // Busca arquivos do usuário, mas NÃO traz o conteúdo pesado (base64) para listar rápido
         const arquivos = await Arquivo.find({ dono: req.params.username }).select('-conteudo');
         res.json(arquivos);
     } catch (erro) {
@@ -136,7 +209,7 @@ app.get('/api/meus-arquivos/:username', async (req, res) => {
     }
 });
 
-// BAIXAR/ABRIR UM ARQUIVO
+// 6. BAIXAR ARQUIVO
 app.get('/api/arquivo/:id', async (req, res) => {
     try {
         await connectToDatabase();
@@ -148,36 +221,63 @@ app.get('/api/arquivo/:id', async (req, res) => {
     }
 });
 
-// --- ROTA DE STATUS DO SISTEMA (INTEGRIDADE REAL) ---
+
+// --- ADMINISTRAÇÃO & MONITORAMENTO (SIEM) ---
+
+// 7. STATUS E INTEGRIDADE DO SISTEMA
 app.get('/api/status/check', async (req, res) => {
     try {
         await connectToDatabase();
         
-        // 1. Checa conexão com Banco
         const dbStatus = mongoose.connection.readyState === 1 ? 'OK' : 'ERROR';
-
-        // 2. Procura ataques de força bruta nos últimos 10 minutos
         const dezMinutosAtras = new Date(Date.now() - 10 * 60 * 1000);
         
-        // Conta logs que tenham "FAIL" ou "NEGADO" na ação/detalhe
-        const ameacas = await Log.countDocuments({
+        // Conta logs de falha recentes
+        const ameacas = await SecurityLog.countDocuments({
             data: { $gte: dezMinutosAtras },
-            $or: [
-                { acao: { $regex: 'FAIL', $options: 'i' } },
-                { acao: { $regex: 'NEGADO', $options: 'i' } },
-                { detalhe: { $regex: 'Inválida', $options: 'i' } }
-            ]
+            acao: { $in: ["LOGIN_FALHA", "BLOQUEIO_ATIVO"] }
         });
 
         res.json({
             banco: dbStatus,
             ameacasDetectadas: ameacas,
-            integridade: ameacas > 0 ? 'COMPROMETIDA' : 'SEGURA'
+            integridade: ameacas > 0 ? 'SOB ATAQUE' : 'SEGURA'
         });
 
     } catch (e) {
         res.status(500).json({ erro: "Falha no check-up" });
     }
 });
+
+// 8. DASHBOARD DE AMEÇAS (Novo!)
+app.get('/api/admin/ameacas', async (req, res) => {
+    try {
+        await connectToDatabase();
+        
+        // Pega últimos 50 incidentes
+        const logsRecentes = await SecurityLog.find({ 
+            acao: { $in: ["LOGIN_FALHA", "BLOQUEIO_ATIVO"] } 
+        })
+        .sort({ data: -1 })
+        .limit(50);
+
+        // Estatística: Quem são os Top Atacantes?
+        const topAtacantes = await SecurityLog.aggregate([
+            { $match: { acao: "LOGIN_FALHA" } },
+            { $group: { _id: "$ip", total: { $sum: 1 } } },
+            { $sort: { total: -1 } },
+            { $limit: 5 }
+        ]);
+
+        res.json({
+            ultimosIncidentes: logsRecentes,
+            topAtacantes: topAtacantes
+        });
+
+    } catch (erro) {
+        res.status(500).json({ erro: "Erro ao buscar dados de segurança" });
+    }
+});
+
 // Export padrão
 export default app;
