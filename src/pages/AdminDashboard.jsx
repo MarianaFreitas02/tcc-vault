@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 export default function AdminDashboard() {
   const [dados, setDados] = useState({ ultimosIncidentes: [], topAtacantes: [] });
   const [status, setStatus] = useState("INICIALIZANDO...");
-  const navigate = useNavigate();
+  // const navigate = useNavigate(); // Se não for usar, pode comentar
 
   const carregarDados = async () => {
     try {
@@ -34,20 +34,36 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     carregarDados();
-    const intervalo = setInterval(carregarDados, 3000); // Atualiza a cada 3s (mais rápido)
+    const intervalo = setInterval(carregarDados, 3000); 
     return () => clearInterval(intervalo);
   }, []);
 
-  // Determina a cor do status
   const getStatusColor = () => {
-    if (status.includes("ALERTA")) return '#ff3333'; // Vermelho
-    if (status.includes("ERRO")) return '#ffbb33';   // Amarelo
-    return '#00ff41'; // Verde Hacker
+    if (status.includes("ALERTA")) return '#ff3333'; 
+    if (status.includes("ERRO")) return '#ffbb33';   
+    return '#00ff41'; 
   };
 
   return (
     <div style={styles.container}>
-      {/* HEADER / BARRA SUPERIOR */}
+      {/* Estilos Globais para a Barra de Rolagem Neon */}
+      <style>{`
+        ::-webkit-scrollbar {
+          width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+          background: #050505; 
+        }
+        ::-webkit-scrollbar-thumb {
+          background: #004400; 
+          border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: #00ff41; 
+        }
+      `}</style>
+
+      {/* HEADER */}
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>
@@ -90,7 +106,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* COLUNA 2: FEED DE LOGS */}
+        {/* COLUNA 2: FEED DE LOGS (Agora com Scroll visível) */}
         <div style={styles.card}>
           <h3 style={styles.cardTitle}>
             {'['} FEED_TEMPO_REAL {']'}
@@ -122,7 +138,6 @@ export default function AdminDashboard() {
 
       </div>
 
-      {/* RODAPÉ TÉCNICO */}
       <div style={styles.footer}>
         <p>MEM_USAGE: 42MB | CPU_LOAD: 12% | UPTIME: 99.9% | ENCRYPTION: AES-256-GCM</p>
       </div>
@@ -130,13 +145,13 @@ export default function AdminDashboard() {
   );
 }
 
-// --- ESTILOS CYBERPUNK / TERMINAL ---
+// --- ESTILOS ---
 const styles = {
   container: {
     minHeight: '100vh',
-    backgroundColor: '#000000', // Preto absoluto
-    color: '#00ff41',           // Verde Fósforo
-    fontFamily: "'Courier New', Courier, monospace", // Fonte Terminal
+    backgroundColor: '#000000',
+    color: '#00ff41',
+    fontFamily: "'Courier New', Courier, monospace",
     padding: '2rem',
     display: 'flex',
     flexDirection: 'column',
@@ -177,17 +192,18 @@ const styles = {
   },
   grid: {
     display: 'grid',
-    gridTemplateColumns: '1fr 1fr', // 2 Colunas
+    gridTemplateColumns: '1fr 1fr',
     gap: '2rem',
-    flex: 1,
+    alignItems: 'start', // Garante que os cards não estiquem desnecessariamente
   },
   card: {
-    border: '1px solid #00ff41', // Borda Verde Hacker
+    border: '1px solid #00ff41',
     backgroundColor: '#050505',
     padding: '1rem',
     display: 'flex',
     flexDirection: 'column',
-    boxShadow: '0 0 10px rgba(0, 255, 65, 0.1)', // Brilho leve
+    boxShadow: '0 0 10px rgba(0, 255, 65, 0.1)',
+    maxHeight: '80vh', // Limita a altura do cartão na tela
   },
   cardTitle: {
     marginTop: 0,
@@ -208,9 +224,9 @@ const styles = {
     marginBottom: '5px',
   },
   scrollArea: {
-    flex: 1,
-    overflowY: 'auto',
-    fontFamily: "'Consolas', 'Monaco', monospace",
+    overflowY: 'auto', // ONDE A MÁGICA ACONTECE
+    maxHeight: '500px', // FORÇA O SCROLL DEPOIS DE 500PX
+    paddingRight: '5px', // Espaço para a barra de rolagem não colar no texto
   },
   row: {
     display: 'flex',
@@ -240,8 +256,6 @@ const styles = {
   }
 };
 
-// Adicione isso no seu index.css global se a animação não funcionar,
-// mas o React geralmente lida bem se já tiver em outro lugar.
 const styleSheet = document.createElement("style");
 styleSheet.innerText = `
   @keyframes blink {
