@@ -4,6 +4,23 @@ import Login from './pages/Login';
 import Cadastro from './pages/Cadastro';
 import Dashboard from './pages/Dashboard';
 import './App.css';
+import AdminDashboard from './pages/AdminDashboard';
+
+
+function App() {
+  return (
+    <Router>
+      <Routes>
+        {/* ... suas outras rotas ... */}
+        <Route path="/login" element={<Login />} />
+        
+        {/* Nova Rota Secreta */}
+        <Route path="/admin/siem" element={<AdminDashboard />} />
+        
+      </Routes>
+    </Router>
+  );
+}
 
 // --- COMPONENTE VIGIA (Monitora Inatividade) ---
 function AutoLogout() {
