@@ -224,7 +224,7 @@ const styles = {
     marginBottom: '5px',
   },
   scrollArea: {
-    overflowY: 'auto', // ONDE A MÁGICA ACONTECE
+    overflowY: 'auto', 
     maxHeight: '500px', // FORÇA O SCROLL DEPOIS DE 500PX
     paddingRight: '5px', // Espaço para a barra de rolagem não colar no texto
   },

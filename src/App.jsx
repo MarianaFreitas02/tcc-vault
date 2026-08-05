@@ -4,10 +4,10 @@ import Dashboard from './pages/Dashboard';
 import Cadastro from './pages/Cadastro';
 import AdminDashboard from './pages/AdminDashboard';
 
-// Componente simples para proteger rotas
+// Componente de Rota Protegida ajustado para o fluxo do TCC
+// Agora ele permite a entrada e deixa o Dashboard validar a Chave Mestra
 const RotaPrivada = ({ children }) => {
-  const token = localStorage.getItem('token');
-  return token ? children : <Navigate to="/login" />;
+  return children; 
 };
 
 function App() {
@@ -28,7 +28,7 @@ function App() {
           </RotaPrivada>
         } />
 
-        {/* --- NOVA ROTA DO SIEM (ADMIN) --- */}
+        {/* --- ROTA DO SIEM (ADMIN) --- */}
         <Route path="/admin/siem" element={<AdminDashboard />} />
 
         {/* Rota 404 (Qualquer outra coisa vai pro login) */}
@@ -37,4 +37,5 @@ function App() {
     </Router>
   );
 }
+
 export default App;

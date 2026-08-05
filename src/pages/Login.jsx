@@ -1,316 +1,148 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { derivarChaveMestra, gerarHashDeAutenticacao } from '../crypto';
-import PatternLock from '../components/PatternLock';
 import Logo from '../components/Logo';
+import { KeyRound, Lock, Loader2, ShieldAlert } from 'lucide-react';
 import '../App.css';
-import { Hash, Type, Grid, User, Eye, EyeOff } from 'lucide-react';
 
-// --- COMPONENTE DE LOADING TÁTICO (MATRIX STYLE) ---
+/**
+ * TELA DE CARREGAMENTO (FEEDBACK VISUAL)
+ */
 function LoadingScreen({ onComplete }) {
   const [progress, setProgress] = useState(0);
-  const [msg, setMsg] = useState("INICIANDO PROTOCOLO...");
-
   useEffect(() => {
     const interval = setInterval(() => {
       setProgress((old) => {
-        const increment = Math.floor(Math.random() * 15) + 1; 
-        const newProgress = old + increment;
-
-        if (newProgress > 30 && newProgress < 50) setMsg("VERIFICANDO INTEGRIDADE...");
-        if (newProgress > 50 && newProgress < 80) setMsg("DESCRIPTOGRAFANDO COFRE...");
-        if (newProgress > 80 && newProgress < 99) setMsg("LIBERANDO ACESSO...");
-
-        if (newProgress >= 100) {
+        if (old >= 100) {
           clearInterval(interval);
-          setMsg("ACESSO AUTORIZADO");
-          setTimeout(onComplete, 800); 
+          setTimeout(() => onComplete(), 600);
           return 100;
         }
-        return newProgress;
+        return Math.min(old + 10, 100);
       });
-    }, 150); 
-
+    }, 80);
     return () => clearInterval(interval);
-  }, []);
+  }, [onComplete]);
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: '#020202', zIndex: 9999,
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      fontFamily: "'Courier New', monospace", color: '#00ff41'
-    }}>
-      <div style={{ marginBottom: '40px', transform: 'scale(1.5)' }}>
-        <Logo size={100} />
-      </div>
-      <h1 style={{ 
-        fontSize: '5rem', margin: '0', 
-        textShadow: '0 0 20px rgba(0, 255, 65, 0.5)' 
-      }}>
-        {progress}%
-      </h1>
-      <div style={{ 
-        width: '300px', height: '4px', background: '#111', 
-        marginTop: '20px', borderRadius: '2px', overflow: 'hidden' 
-      }}>
-        <div style={{ 
-          width: `${progress}%`, height: '100%', 
-          background: '#00ff41', 
-          boxShadow: '0 0 10px #00ff41',
-          transition: 'width 0.2s linear' 
-        }} />
-      </div>
-      <p style={{ 
-        marginTop: '20px', letterSpacing: '3px', fontSize: '0.9rem', 
-        opacity: 0.8, textTransform: 'uppercase' 
-      }}>
-        {msg}
-      </p>
+    <div className="loading-overlay" style={{backgroundColor: '#000', position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 999}}>
+      <Logo size={100} />
+      <h1 style={{fontSize: '4rem', color: '#00ff41', textShadow: '0 0 20px #00ff41'}}>{progress}%</h1>
+      <p style={{color: '#00ff41', letterSpacing: '4px', fontSize: '0.8rem'}}>DESCRIPTOGRAFANDO CAMADA DE ACESSO...</p>
     </div>
   );
 }
 
-// --- COMPONENTE PRINCIPAL ---
 export default function Login() {
-  // 1. Definições Iniciais
   const navigate = useNavigate();
-  const API_URL = ""; // Vazio para usar Proxy do Vite (ou coloque a URL completa se precisar)
-
-  // 2. Estados
-  const [metodo, setMetodo] = useState('cpf'); 
-  const [identificacao, setIdentificacao] = useState("");
-  const [segredo, setSegredo] = useState("");
+  
+  // Estados para credenciais
+  const [username, setUsername] = useState(""); // O ID (ex: nexus_123456)
+  const [seedPhrase, setSeedPhrase] = useState("");
+  
+  // Estados de controle
   const [status, setStatus] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [dadosLoginSucesso, setDadosLoginSucesso] = useState(null); 
-  const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [sessionData, setSessionData] = useState(null);
+  
+  const API_URL = "https://accessnexus.com.br/api";
 
-  // 3. Funções Auxiliares
-  const trocarMetodo = (m) => {
-    setMetodo(m);
-    setStatus("");
-    setSegredo("");
-    setMostrarSenha(false);
-  };
-
-  const handleCpfChange = (e) => {
-    let v = e.target.value.replace(/\D/g, "");
-    if (v.length > 11) v = v.slice(0, 11);
-    v = v.replace(/(\d{3})(\d)/, "$1.$2");
-    v = v.replace(/(\d{3})(\d)/, "$1.$2");
-    v = v.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
-    setIdentificacao(v);
-  };
-
-  const irParaCadastro = () => {
-    let metodoDestino = 'senha';
-    if (metodo === 'pin') metodoDestino = 'pin';
-    if (metodo === 'frase') metodoDestino = 'frase';
-    if (metodo === 'pattern') metodoDestino = 'pattern';
-    navigate('/cadastro', { state: { metodoInicial: metodoDestino } });
-  };
-
-  const finalizarLogin = () => {
-    // Só navega DEPOIS da animação de loading terminar
-    navigate('/dashboard', { state: dadosLoginSucesso });
-  };
-
-  // 4. Lógica de Login (TCC)
-  async function handleLogin(segredoFinal = segredo) {
-    if (!identificacao) return setStatus("⚠️ Identificação necessária.");
-    if (!segredoFinal) return setStatus("⚠️ Senha/Padrão vazio.");
+  async function handleConnect(e) {
+    e.preventDefault();
     
-    setStatus("⏳ PROCESSANDO...");
+    // Usando o nome correto do estado que você definiu: username
+    if (!username) return setStatus("⚠️ INSIRA O ID DO SEU COFRE.");
+    if (seedPhrase.trim().split(/\s+/).length < 12) return setStatus("⚠️ SEED INVÁLIDA.");
 
+    setIsAuthenticating(true);
     try {
-      const cpfReal = identificacao.replace(/\D/g, "");
-      
-      let usernameComSufixo = cpfReal;
-      if (metodo === 'pin') usernameComSufixo += "_pin";
-      if (metodo === 'frase') usernameComSufixo += "_frase";
-      if (metodo === 'pattern') usernameComSufixo += "_pattern";
+      // CORREÇÃO AQUI: mudado de usernameDigitado para username
+      const respSalt = await fetch(`${API_URL}/auth/salt/${username.trim()}`);
+      const dataSalt = await respSalt.json();
 
-      // Passo 1: Busca o SALT
-      const respSalt = await fetch(`${API_URL}/api/auth/salt/${usernameComSufixo}`);
-      
       if (!respSalt.ok) {
-        return setStatus(`❌ Usuário ou método não encontrado.`);
+        setStatus("❌ ID NÃO ENCONTRADO.");
+        setIsAuthenticating(false);
+        return;
       }
-      
-      const { salt } = await respSalt.json();
 
-      // Passo 2: Derivação de Chaves (Zero Knowledge)
-      const { key } = await derivarChaveMestra(segredoFinal, salt);
+      const { key } = await derivarChaveMestra(seedPhrase.trim().toLowerCase(), dataSalt.salt);
       const authHash = await gerarHashDeAutenticacao(key);
 
-      // Passo 3: Autenticação
-      const resposta = await fetch(`${API_URL}/api/auth/login`, {
+      const resp = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: usernameComSufixo, authHash })
+        body: JSON.stringify({ username: username.trim(), authHash })
       });
 
-      const data = await resposta.json();
-
-      if (resposta.ok) {
-        // Sucesso! Salva Token e inicia animação
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('usuario', usernameComSufixo);
-        
-        setDadosLoginSucesso({ chaveMestra: key, usuario: usernameComSufixo });
-        setIsLoading(true); // Dispara o LoadingScreen
+      if (resp.ok) {
+        setSessionData({ chaveMestra: key, usuario: username.trim() });
+        setIsLoading(true); // Isso vai disparar o LoadingScreen e navegar para o dashboard
       } else {
-        setStatus(data.erro || "⛔ NEGADO: Credenciais Inválidas.");
+        setStatus("❌ FRASE MNEMÔNICA INCORRETA.");
+        setIsAuthenticating(false);
       }
-    } catch (error) {
-      console.error(error);
-      setStatus("Erro de Conexão com o Servidor.");
+    } catch (e) {
+      console.error(e);
+      setStatus("❌ ERRO DE COMUNICAÇÃO COM O SERVIDOR.");
+      setIsAuthenticating(false);
     }
   }
 
-  // 5. Renderização dos Inputs Específicos
-  const renderInputSegredo = () => {
-    const olhoStyle = {
-      position: 'absolute', right: '10px', top: '38px', 
-      background: 'none', border: 'none', color: '#666', cursor: 'pointer', zIndex: 10
-    };
-
-    switch (metodo) {
-      case 'cpf': // Senha Padrão
-        return (
-          <div className="input-group" style={{position: 'relative'}}>
-            <label>SENHA DE ACESSO</label>
-            <input 
-              type={mostrarSenha ? "text" : "password"} 
-              placeholder="••••••••" 
-              value={segredo} 
-              onChange={e => setSegredo(e.target.value)} 
-            />
-            <button type="button" onClick={() => setMostrarSenha(!mostrarSenha)} style={olhoStyle}>
-              {mostrarSenha ? <EyeOff size={16}/> : <Eye size={16}/>}
-            </button>
-          </div>
-        );
-      case 'pin':
-        return (
-          <div className="input-group" style={{position: 'relative'}}>
-            <label>PIN DE SEGURANÇA</label>
-            <input 
-              type={mostrarSenha ? "tel" : "password"} 
-              maxLength="8" 
-              placeholder="0000" 
-              value={segredo} 
-              onChange={e => setSegredo(e.target.value.replace(/\D/g,''))} 
-              style={{ fontSize: '1.5rem', letterSpacing: '10px', textAlign: 'center' }} 
-            />
-            <button type="button" onClick={() => setMostrarSenha(!mostrarSenha)} style={olhoStyle}>
-              {mostrarSenha ? <EyeOff size={16}/> : <Eye size={16}/>}
-            </button>
-          </div>
-        );
-      case 'frase':
-        return (
-          <div className="input-group" style={{position: 'relative'}}>
-            <label>FRASE DE SEGURANÇA</label>
-            <input 
-              type={mostrarSenha ? "text" : "password"} 
-              placeholder="Ex: cavalo bateria correto" 
-              value={segredo} 
-              onChange={e => setSegredo(e.target.value)} 
-              style={{ paddingRight: '40px' }} 
-            />
-            <button type="button" onClick={() => setMostrarSenha(!mostrarSenha)} style={olhoStyle}>
-              {mostrarSenha ? <EyeOff size={16}/> : <Eye size={16}/>}
-            </button>
-          </div>
-        );
-      case 'pattern':
-        return (
-          <div className="input-group" style={{alignItems: 'center'}}>
-            <label style={{marginBottom: '15px'}}>PADRÃO DE DESBLOQUEIO</label>
-            <PatternLock onComplete={(padrao) => handleLogin(padrao)} />
-          </div>
-        );
-      default: return null;
-    }
-  };
-
   return (
-    <div className="login-wrapper">
-      {isLoading && <LoadingScreen onComplete={finalizarLogin} />}
+    <div className="tactical-layout login-page">
+      {isLoading ? (
+        <LoadingScreen onComplete={() => navigate('/dashboard', { state: sessionData })} />
+      ) : (
+        <div className="login-box tactical-theme">
+          <div className="login-header-group" style={{textAlign: 'center', marginBottom: '20px'}}>
+            <Logo size={60} />
+            <h1 style={{marginTop: '15px', letterSpacing: '3px', fontSize: '1.2rem', color: '#fff'}}>NEXUS ACCESS</h1>
+          </div>
+          
+          <form onSubmit={handleConnect} style={{ width: '100%' }}>
+            {/* NOVO CAMPO DE ID */}
+            <div className="input-group">
+              <label style={{fontSize: '0.7rem', color: '#004411'}}>ID DO COFRE</label>
+              <input 
+                className="tactical-input" 
+                type="text"
+                value={username} 
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="ex: nexus_123456"
+                autoComplete="off"
+              />
+            </div>
 
-      <div className="login-box" style={{maxWidth: '500px'}}>
-        <div style={{marginBottom: '20px', textAlign: 'center'}}>
-          <Logo size={60} />
-          <h1 style={{fontSize: '1.5rem', marginTop: '10px', color: '#00ff41'}}>NEXUS ACCESS</h1>
-          <p style={{letterSpacing: '2px', fontSize: '0.8rem', color: '#666'}}>SELECIONE O MÉTODO DE AUTENTICAÇÃO</p>
-        </div>
+            <div className="input-group" style={{marginTop: '15px'}}>
+              <label style={{fontSize: '0.7rem', color: '#004411'}}><KeyRound size={14}/> SEED PHRASE [BIP-39]</label>
+              <textarea 
+                className="tactical-input" 
+                rows="4" 
+                value={seedPhrase} 
+                onChange={(e) => setSeedPhrase(e.target.value)}
+                placeholder="Digite as 12 palavras separadas por espaço..."
+              />
+            </div>
 
-        {/* --- ABAS DE NAVEGAÇÃO --- */}
-        <div className="auth-tabs" style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '20px' }}>
-          <BotaoAba ativo={metodo === 'cpf'} onClick={() => trocarMetodo('cpf')} icon={<User size={20}/>} />
-          <BotaoAba ativo={metodo === 'pin'} onClick={() => trocarMetodo('pin')} icon={<Hash size={20}/>} />
-          <BotaoAba ativo={metodo === 'frase'} onClick={() => trocarMetodo('frase')} icon={<Type size={20}/>} />
-          <BotaoAba ativo={metodo === 'pattern'} onClick={() => trocarMetodo('pattern')} icon={<Grid size={20}/>} />
-        </div>
+            <button type="submit" className="btn-action" disabled={isAuthenticating} style={{marginTop: '20px'}}>
+              {isAuthenticating ? <Loader2 className="spinner" /> : <><Lock size={16}/> [ RECONECTAR ]</>}
+            </button>
+          </form>
 
-        <div className="input-group">
-          <label>IDENTIFICAÇÃO (CPF)</label>
-          <input 
-            type="text" 
-            placeholder="000.000.000-00" 
-            value={identificacao} 
-            onChange={handleCpfChange} 
-            maxLength={14} 
-            style={{fontWeight: 'bold', fontFamily: 'monospace'}} 
-          />
-        </div>
+          <div className="warning-box">
+            <ShieldAlert size={20} />
+            <p>O Nexus não armazena sua semente. O ID é público, mas o acesso depende exclusivamente das suas 12 palavras.</p>
+          </div>
 
-        {renderInputSegredo()}
-
-        {metodo !== 'pattern' && (
-          <button className="btn-action" style={{marginTop: '20px'}} onClick={() => handleLogin()}>
-            [ AUTENTICAR ]
+          <button onClick={() => navigate('/cadastro')} className="link-back">
+            {">>"} NÃO TEM ACESSO? GERAR NOVA SEED
           </button>
-        )}
 
-        <p style={{
-          marginTop: '20px', 
-          color: status.includes('❌') || status.includes('⛔') ? '#ff3333' : '#00ff41', 
-          minHeight: '20px', fontSize: '0.8rem', textAlign: 'center'
-        }}>
-          {status}
-        </p>
-        
-        <div style={{marginTop: '20px', borderTop: '1px solid #333', paddingTop: '15px', textAlign: 'center'}}>
-          <button onClick={irParaCadastro} style={{
-            background: 'none', border: 'none', cursor: 'pointer', 
-            fontFamily: 'inherit', fontSize: '0.8rem', color: '#666', textDecoration: 'underline'
-          }}>
-            SOLICITAR CREDENCIAL (MODO {metodo.toUpperCase()})
-          </button>
+          <p style={{ color: '#00ff41', marginTop: '15px', fontSize: '0.8rem', textAlign: 'center' }}>{status}</p>
         </div>
-      </div>
+      )}
     </div>
   );
-}
-
-// Componente simples para os botões das abas ficarem estilosos
-function BotaoAba({ ativo, onClick, icon }) {
-  return (
-    <button 
-      onClick={onClick}
-      style={{
-        background: ativo ? 'rgba(0, 255, 65, 0.1)' : 'transparent',
-        border: ativo ? '1px solid #00ff41' : '1px solid #333',
-        color: ativo ? '#00ff41' : '#666',
-        padding: '10px',
-        borderRadius: '6px',
-        cursor: 'pointer',
-        transition: 'all 0.3s'
-      }}
-    >
-      {icon}
-    </button>
-  )
 }

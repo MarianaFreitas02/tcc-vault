@@ -1,57 +1,111 @@
-// src/crypto.js - O Cérebro Matemático do TCC
+/**
+ * NEXUS VAULT - MOTOR CRIPTOGRÁFICO TÁTICO
+ * Baseado em Web Crypto API para arquitetura Zero-Knowledge
+ */
 
-// 1. Converte texto/buffer para Base64 (para enviar na rede)
+// ✅ CORREÇÃO: Converte Buffer para Base64 usando processamento em blocos para evitar Stack Overflow
 export function bufferParaBase64(buffer) {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return window.btoa(binary);
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const len = bytes.byteLength;
+  const chunk = 8192; // Processa 8KB por vez em vez de tudo de uma vez
+
+  for (let i = 0; i < len; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + chunk, len)));
+  }
+  return btoa(binary);
 }
-  
-// 2. Converte Base64 de volta para Buffer (para usar na criptografia)
+
+// Converte Base64 de volta para Buffer
 export function base64ParaBuffer(base64) {
-    const binary_string = window.atob(base64);
-    const len = binary_string.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binary_string.charCodeAt(i);
-    }
-    return bytes.buffer;
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes.buffer;
 }
 
-// 3. O Liquidificador (Senha + Sal = Chave Mestra)
-export async function derivarChaveMestra(senha, saltBase64) {
-    const encoder = new TextEncoder();
-    
-    // Se o salt vier como string Base64, converte. Se não, gera um novo.
-    let salt;
-    if (saltBase64) {
-        salt = base64ParaBuffer(saltBase64);
-    } else {
-        salt = window.crypto.getRandomValues(new Uint8Array(16));
-    }
+/**
+ * DERIVAÇÃO DE CHAVE MESTRA (PBKDF2)
+ * Transforma a Seed Phrase de 12 palavras em uma chave AES-256
+ */
+export async function derivarChaveMestra(seedPhrase, saltBase64) {
+  const encoder = new TextEncoder();
+  const passwordBuffer = encoder.encode(seedPhrase.trim().toLowerCase());
+  const saltBuffer = base64ParaBuffer(saltBase64);
 
-    const keyMaterial = await window.crypto.subtle.importKey(
-      "raw", encoder.encode(senha), { name: "PBKDF2" }, false, ["deriveKey"]
-    );
+  const keyMaterial = await window.crypto.subtle.importKey(
+    'raw',
+    passwordBuffer,
+    'PBKDF2',
+    false,
+    ['deriveKey']
+  );
 
-    const key = await window.crypto.subtle.deriveKey(
-      { name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" },
-      keyMaterial, 
-      { name: "AES-GCM", length: 256 }, 
-      true, // Importante: true para podermos exportar bytes para criar o Hash de Auth
-      ["encrypt", "decrypt"]
-    );
+  const key = await window.crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: saltBuffer,
+      iterations: 100000, 
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    true, 
+    ['encrypt', 'decrypt']
+  );
 
-    return { key, salt: bufferParaBase64(salt) };
+  return { key };
 }
 
-// 4. Cria o "Crachá" de Autenticação (Hash da Chave Mestra)
-// O servidor recebe isso para dizer "OK", mas não consegue reverter para a Chave Mestra.
-export async function gerarHashDeAutenticacao(chaveMestra) {
-    const rawKey = await window.crypto.subtle.exportKey("raw", chaveMestra);
-    const hashBuffer = await window.crypto.subtle.digest("SHA-256", rawKey);
-    return bufferParaBase64(hashBuffer);
+/**
+ * GERA HASH DE AUTENTICAÇÃO
+ * Prova de conhecimento da chave sem revelá-la ao servidor
+ */
+export async function gerarHashDeAutenticacao(key) {
+  const exportedKey = await window.crypto.subtle.exportKey('raw', key);
+  const hashBuffer = await window.crypto.subtle.digest('SHA-256', exportedKey);
+  return bufferParaBase64(hashBuffer);
+}
+
+/**
+ * CIFRAGEM AES-256-GCM
+ * Criptografia autenticada localmente
+ */
+export async function criptografarDado(chaveMestra, dadoOriginal) {
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const encoder = new TextEncoder();
+  
+  // Verifica se o dado é string ou buffer (importante para arquivos)
+  const dadoBuffer = typeof dadoOriginal === 'string' 
+    ? encoder.encode(dadoOriginal) 
+    : dadoOriginal;
+
+  const conteudoCifrado = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: iv },
+    chaveMestra,
+    dadoBuffer
+  );
+
+  return {
+    iv: bufferParaBase64(iv),
+    conteudo: bufferParaBase64(conteudoCifrado)
+  };
+}
+
+/**
+ * DECIFRAGEM AES-256-GCM
+ */
+export async function descriptografarDado(chaveMestra, ivBase64, conteudoBase64) {
+  const iv = base64ParaBuffer(ivBase64);
+  const conteudo = base64ParaBuffer(conteudoBase64);
+
+  const decifradoBuffer = await window.crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: iv },
+    chaveMestra,
+    conteudo
+  );
+
+  return decifradoBuffer;
 }
